@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - PVC报价系统{% endblock %}
+
+{% block content %}
+<div class="min-h-[calc(100vh-200px)] flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">用户登录</h2>
+        
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="mb-4">
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入用户名"
+                >
+            </div>
+            
+            <div class="mb-6">
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">密码</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入密码"
+                >
+            </div>
+            
+            <div id="errorMessage" class="mb-4 text-red-600 text-sm hidden"></div>
+            
+            <button 
+                type="submit" 
+                id="loginButton"
+                class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition flex items-center justify-center"
+            >
+                <span id="loginButtonText">登录</span>
+                <div id="loginSpinner" class="spinner ml-2 hidden"></div>
+            </button>
+        </form>
+        
+        <div class="mt-4 text-center text-sm text-gray-600">
+            <p>测试账号：admin / admin</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    async function handleLogin(event) {
+        event.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('errorMessage');
+        const loginButton = document.getElementById('loginButton');
+        const loginButtonText = document.getElementById('loginButtonText');
+        const loginSpinner = document.getElementById('loginSpinner');
+        
+        // 显示加载状态
+        loginButton.disabled = true;
+        loginButtonText.textContent = '登录中...';
+        loginSpinner.classList.remove('hidden');
+        errorDiv.classList.add('hidden');
+        
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                window.location.href = '/';
+            } else {
+                const error = await response.json();
+                errorDiv.textContent = error.detail || '登录失败';
+                errorDiv.classList.remove('hidden');
+            }
+        } catch (error) {
+            errorDiv.textContent = '网络错误，请稍后重试';
+            errorDiv.classList.remove('hidden');
+        } finally {
+            loginButton.disabled = false;
+            loginButtonText.textContent = '登录';
+            loginSpinner.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}
+
+
