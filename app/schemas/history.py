@@ -26,6 +26,7 @@ class FavoriteItemResponse(BaseModel):
     id: int
     history_id: int
     name: Optional[str]
+    image_path: Optional[str] = None  # 图片路径
     created_at: datetime
     # 关联的历史记录信息
     history: HistoryItemResponse

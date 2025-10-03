@@ -236,13 +236,13 @@ if __name__ == "__main__":
 
     # 2. 定义产品参数 (请在此处修改为您想计算的产品信息)
     product_info = {
-        "length": 3,            # 产品长度 (cm)
-        "width": 3,             # 产品宽度 (cm)
+        "length": 5.2,            # 产品长度 (cm)
+        "width": 3.5,             # 产品宽度 (cm)
         "thickness": 0.3,         # 产品厚度 (cm)
-        "color_count": 5,         # 颜色数量
-        "area_ratio": 0.7,        # 占用面积比例 (70%)
+        "color_count": 6,         # 颜色数量
+        "area_ratio": 0.9,        # 占用面积比例 (70%)
         "difficulty_factor": 3,   # 难度系数 (3为普通)
-        "order_quantity": 100000    # 订单数量
+        "order_quantity": 6000    # 订单数量
     }
 
     # 3. 以 Debug 模式进行计算

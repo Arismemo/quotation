@@ -74,10 +74,11 @@ async def calculate_quote(
             logger.error(f"附加设置快照失败: {e}")
         
         # 如果用户已登录，自动写入历史
+        history_id = None
         if current_user:
             try:
                 request_payload = quote_req.model_dump()
-                crud.create_history(
+                history_record = crud.create_history(
                     db=db,
                     user_id=current_user.id,
                     request_payload=request_payload,
@@ -86,10 +87,15 @@ async def calculate_quote(
                     unit_price=result.get("产品单价", 0),
                     total_price=result.get("订单货款总额", 0)
                 )
-                logger.info(f"用户 {current_user.username} 的报价已保存到历史")
+                history_id = history_record.id
+                logger.info(f"用户 {current_user.username} 的报价已保存到历史，ID: {history_id}")
             except Exception as e:
                 logger.error(f"保存历史记录失败: {e}")
                 # 不影响报价结果的返回
+        
+        # 将history_id添加到结果中，便于前端收藏
+        if history_id:
+            result["history_id"] = history_id
         
         return result
         

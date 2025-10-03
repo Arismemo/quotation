@@ -69,14 +69,19 @@ async def update_favorite(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """更新收藏备注（使用 name 字段作为备注存储）"""
+    """更新收藏备注和图片（使用 name 字段作为备注存储，image_path 存储图片路径）"""
     favorite = crud.get_favorite_by_id(db, favorite_id, current_user.id)
     if not favorite:
         raise HTTPException(status_code=404, detail="收藏不存在或无权访问")
-    name = payload.get("name")
-    if name is None:
-        raise HTTPException(status_code=400, detail="缺少备注内容")
-    favorite.name = str(name)[:200]
+    
+    # 更新备注
+    if "name" in payload:
+        favorite.name = str(payload["name"])[:200] if payload["name"] else None
+    
+    # 更新图片路径
+    if "image_path" in payload:
+        favorite.image_path = str(payload["image_path"])[:500] if payload["image_path"] else None
+    
     db.commit()
     db.refresh(favorite)
     return FavoriteItemResponse.model_validate(favorite)

@@ -93,6 +93,7 @@ class QuotationFavorite(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     history_id = Column(Integer, ForeignKey("quotation_history.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(200), nullable=True)  # 自定义标题
+    image_path = Column(String(500), nullable=True)  # 图片路径
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # 关系

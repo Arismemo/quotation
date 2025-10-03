@@ -18,6 +18,81 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* 自定义滑块样式 */
+        .slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            outline: none;
+        }
+        
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            margin-top: -6px; /* 居中对齐：(20px - 8px) / 2 */
+        }
+        
+        .slider-thumb::-webkit-slider-thumb:hover {
+            background: #2563eb;
+            transform: scale(1.15);
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4);
+        }
+        
+        .slider-thumb::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 9999px;
+        }
+        
+        .slider-thumb::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .slider-thumb::-moz-range-thumb:hover {
+            background: #2563eb;
+            transform: scale(1.15);
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4);
+        }
+        
+        .slider-thumb::-moz-range-track {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 9999px;
+        }
+        
+        .slider-thumb::-moz-range-progress {
+            height: 8px;
+            background: #3b82f6;
+            border-radius: 9999px;
+        }
+        
+        /* 自定义下拉框样式 */
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -27,21 +102,23 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <a href="/" class="text-blue-600">
+                    <a href="/" class="text-blue-600 hover:text-blue-700 transition-colors">
                         <div class="leading-tight">
                             <div class="text-lg md:text-xl font-bold">九步PVC制品报价系统</div>
                             <div class="text-xs md:text-sm text-gray-500">联系电话：17612011623</div>
                         </div>
                     </a>
-                    <div class="ml-10 flex space-x-4">
-                        <a href="/" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">首页</a>
-                        <a href="/settings" id="settingsLink" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium hidden">系统设置</a>
-                    </div>
                 </div>
-                <div class="flex items-center">
-                    <div id="userSection" class="hidden">
-                        <span id="usernameDisplay" class="text-gray-700 mr-4"></span>
-                        <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">退出登录</button>
+                <div class="flex items-center space-x-3">
+                    <div id="userSection" class="hidden flex items-center space-x-3">
+                        <span id="usernameDisplay" class="text-gray-700"></span>
+                        <a href="/settings" id="settingsLink" class="text-gray-600 hover:text-blue-600 hidden" title="系统设置">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </a>
+                        <button onclick="logout()" class="text-gray-600 hover:text-red-600 px-3 py-1 rounded-md text-sm border border-gray-300 hover:border-red-300">退出</button>
                     </div>
                     <div id="loginSection">
                         <a href="/login" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">登录</a>
