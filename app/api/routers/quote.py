@@ -37,6 +37,42 @@ async def calculate_quote(
             debug=quote_req.debug
         )
         
+        # 附加设置快照，便于历史可追溯
+        try:
+            app_settings = crud.get_app_settings(db)
+            worker_profiles = crud.get_worker_profiles(db)
+            settings_snapshot = {
+                "settings": {
+                    "profit_margin": app_settings.profit_margin,
+                    "waste_rate": app_settings.waste_rate,
+                    "material_density": app_settings.material_density,
+                    "material_price_per_gram": app_settings.material_price_per_gram,
+                    "mold_edge_length": app_settings.mold_edge_length,
+                    "mold_spacing": app_settings.mold_spacing,
+                    "base_molds_per_shift": app_settings.base_molds_per_shift,
+                    "working_days_per_month": app_settings.working_days_per_month,
+                    "shifts_per_day": app_settings.shifts_per_day,
+                    "needles_per_machine": app_settings.needles_per_machine,
+                    "setup_fee_per_color": app_settings.setup_fee_per_color,
+                    "base_setup_fee": app_settings.base_setup_fee,
+                    "coloring_fee_per_color_per_shift": app_settings.coloring_fee_per_color_per_shift,
+                    "other_salary_per_cell_shift": app_settings.other_salary_per_cell_shift,
+                    "rent_per_cell_shift": app_settings.rent_per_cell_shift,
+                    "electricity_fee_per_cell_shift": app_settings.electricity_fee_per_cell_shift,
+                },
+                "worker_profiles": [
+                    {
+                        "name": wp.name,
+                        "monthly_salary": wp.monthly_salary,
+                        "machines_operated": wp.machines_operated,
+                    } for wp in worker_profiles
+                ]
+            }
+            # 将快照随结果返回（前端不展示也无妨），并随历史保存
+            result["settings_snapshot"] = settings_snapshot
+        except Exception as e:
+            logger.error(f"附加设置快照失败: {e}")
+        
         # 如果用户已登录，自动写入历史
         if current_user:
             try:

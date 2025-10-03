@@ -83,6 +83,13 @@ def compute_quote(db: Session,
     if "error" in result:
         raise ValueError(result["error"])
     
+    # 追加单个产品克重（g）
+    try:
+        _cost, weight_g = calc._calculate_single_material_cost(length, width, thickness, area_ratio)
+        result["单个产品克重(g)"] = round(weight_g, 4)
+    except Exception:
+        pass
+
     return result
 
 
