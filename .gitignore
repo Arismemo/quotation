@@ -9,3 +9,6 @@
 .augment/rules/byterover-rules.md
 AGENTS.md
 CLAUDE.md
+cookies.txt
+app.log
+app.db
