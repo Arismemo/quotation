@@ -6,7 +6,7 @@ from prettytable import PrettyTable
 class QuotationCalculator:
     """
     PVC卡通制品报价计算器。
-    根据V2.1方案实现，该版本不包含一次性模具费。
+    该版本通过颜色数量自动确定产量，移除了难度系数。
     """
     def __init__(self):
         # --- 后台参数设定 (可在此处修改参数) ---
@@ -22,23 +22,33 @@ class QuotationCalculator:
         # 产能参数
         self.MOLD_EDGE_LENGTH = 26      # 模具可用边长 (cm)
         self.MOLD_SPACING = 1           # 产品间距 (cm)
-        self.BASE_MOLDS_PER_SHIFT = 120 # 单班基准产模数 (难度系数为3时)
         self.WORKING_DAYS_PER_MONTH = 26 # 每月工作天数
         self.SHIFTS_PER_DAY = 2         # 每日班数
+        
+        # !! 新增：颜色数量与单班产量的关系映射表 !!
+        # 您可以在此定义不同颜色数量对应的单班生产模具数
+        self.COLOR_OUTPUT_MAP = {
+            (1, 2): 150,   # 1-2 色 -> 150 模/班 (速度最快)
+            (3, 5): 135,   # 3-5 色 -> 135 模/班
+            (6, 8): 120,   # 6-8 色 -> 120 模/班 (您提供的基准)
+            (9, 11): 100,  # 9-11 色 -> 100 模/班
+            (12, 14): 80,  # 12-14 色 -> 80 模/班
+            (15, 18): 60   # 15-18 色 -> 60 模/班 (速度最慢)
+        }
         
         # 机台参数
         self.NEEDLES_PER_MACHINE = 18 # 每台机台的颜色针头数
 
-        # 工人配置 (新增)
+        # 工人配置
         self.WORKER_PROFILES = {
             "skilled": {"monthly_salary": 8400, "machines_operated": 3},
             "standard": {"monthly_salary": 7000, "machines_operated": 2}
         }
 
         # 调机与调色费用
-        self.SETUP_FEE_PER_COLOR = 20  # 单个颜色调机费用
-        self.BASE_SETUP_FEE = 15       # 基础调机费
-        self.COLORING_FEE_PER_COLOR_PER_SHIFT = 5  # 单个颜色单班调色费用 (适用于整个班组)
+        self.SETUP_FEE_PER_COLOR = 20
+        self.BASE_SETUP_FEE = 15
+        self.COLORING_FEE_PER_COLOR_PER_SHIFT = 5
 
         # 每个生产单元(cell)每班次的综合成本 (不含工人工资)
         self.OTHER_SALARY_PER_CELL_SHIFT = 50.0
@@ -46,12 +56,10 @@ class QuotationCalculator:
         self.ELECTRICITY_FEE_PER_CELL_SHIFT = 60.0
 
 
-    def calculate_quote(self, length, width, thickness, color_count, area_ratio, difficulty_factor, order_quantity, worker_type="standard", debug=False):
+    def calculate_quote(self, length, width, thickness, color_count, area_ratio, order_quantity, worker_type="standard", debug=False):
         """
         计算最终报价。
-
-        :param debug: 是否打印详细计算过程
-        ... (其他参数不变)
+        :param difficulty_factor: (已移除)
         """
         if debug:
             print("\n" + "="*70)
@@ -63,7 +71,6 @@ class QuotationCalculator:
             t_input.add_row(["产品厚度 (cm)", thickness])
             t_input.add_row(["颜色数量", color_count])
             t_input.add_row(["占用面积比例", area_ratio])
-            t_input.add_row(["难度系数", difficulty_factor])
             t_input.add_row(["订单数量", order_quantity])
             print(t_input)
 
@@ -72,22 +79,22 @@ class QuotationCalculator:
         if units_per_mold == 0:
             return {"error": "产品尺寸过大，无法放入模具"}
 
-        output_per_shift_units = self._calculate_output_per_shift(units_per_mold, difficulty_factor)
+        output_per_shift_units, molds_per_shift = self._calculate_output_per_shift(units_per_mold, color_count)
         if output_per_shift_units == 0:
-            return {"error": "单班产量为0，请检查难度系数是否为0"}
-        # 根据您的要求，移除 math.ceil，允许班数为小数，以实现更精确的成本计算
+            return {"error": f"颜色数量({color_count})超出预设范围，无法确定产量"}
+            
         shifts_needed = order_quantity / output_per_shift_units
 
         if debug:
             t_capacity = PrettyTable(["产能计算 (Capacity Calculation)", "数值 (Value)"])
             t_capacity.align = "l"
             t_capacity.add_row(["每模产品数 (个)", units_per_mold])
+            t_capacity.add_row(["根据颜色数确定的单班产模数", molds_per_shift])
             t_capacity.add_row(["单班产量 (个)", f"{output_per_shift_units:.2f}"])
-            # 更新调试信息的打印格式，以显示小数班次
             t_capacity.add_row(["完成订单需要班数", f"{shifts_needed:.2f}"])
             print(t_capacity)
 
-        # --- 第二步：计算订单各项成本明细 ---
+        # --- 后续计算逻辑保持不变 ---
         # 订单材料总成本
         single_material_cost, weight = self._calculate_single_material_cost(length, width, thickness, area_ratio)
         total_material_cost = single_material_cost * order_quantity
@@ -103,7 +110,7 @@ class QuotationCalculator:
         # 调机费
         setup_fee = (color_count * self.SETUP_FEE_PER_COLOR) + self.BASE_SETUP_FEE
 
-        # --- 第三步：计算订单生产总成本 ---
+        # 订单生产总成本
         total_production_cost = total_material_cost + total_shift_cost + setup_fee
 
         if debug:
@@ -118,13 +125,12 @@ class QuotationCalculator:
             t_total_cost.add_row(["[汇总] 订单生产总成本 (元)", f"{total_production_cost:.2f}"])
             print(t_total_cost)
 
-
-        # --- 第四步：计算最终销售单价 ---
+        # 最终销售单价
         avg_cost_per_unit = total_production_cost / order_quantity
         factory_cost = avg_cost_per_unit / (1 - self.WASTE_RATE)
         selling_price_per_unit = factory_cost * (1 + self.PROFIT_MARGIN)
 
-        # --- 第五步：生成报价单 ---
+        # 生成报价单
         total_price = selling_price_per_unit * order_quantity
         
         if debug:
@@ -143,7 +149,7 @@ class QuotationCalculator:
             "订单货款总额": round(total_price, 2),
             "--- 成本明细 (供内部参考) ---": "",
             "订单数量": order_quantity,
-            "需要班数": shifts_needed,
+            "需要班数": round(shifts_needed, 2),
             "每模产品数": units_per_mold,
             "单班产量(个)": round(output_per_shift_units),
             "单个产品材料成本": round(single_material_cost, 4),
@@ -161,13 +167,20 @@ class QuotationCalculator:
         rows = math.floor(self.MOLD_EDGE_LENGTH / (length + self.MOLD_SPACING))
         return cols * rows
 
-    def _calculate_output_per_shift(self, units_per_mold, difficulty_factor):
-        """计算单个班次的产量 (个)"""
-        # 难度系数为3是基准产量, 所以用 (3 / difficulty_factor) 作为调整系数
-        if difficulty_factor == 0:
-            return 0
-        output_in_molds = self.BASE_MOLDS_PER_SHIFT * (3 / difficulty_factor)
-        return output_in_molds * units_per_mold
+    def _get_molds_per_shift_by_color(self, color_count):
+        """根据颜色数量从映射表中查找单班产模数"""
+        for (min_colors, max_colors), molds in self.COLOR_OUTPUT_MAP.items():
+            if min_colors <= color_count <= max_colors:
+                return molds
+        return 0 # 如果颜色数超出范围，返回0
+
+    def _calculate_output_per_shift(self, units_per_mold, color_count):
+        """计算单个班次的产量 (个)，同时返回产模数"""
+        output_in_molds = self._get_molds_per_shift_by_color(color_count)
+        if output_in_molds == 0:
+            return 0, 0
+        output_in_units = output_in_molds * units_per_mold
+        return output_in_units, output_in_molds
     
     def _calculate_single_material_cost(self, length, width, thickness, area_ratio):
         """计算单个产品的材料成本, 同时返回克重"""
@@ -177,10 +190,7 @@ class QuotationCalculator:
         return cost, weight
 
     def _get_cost_per_cell_shift(self, needles_used, color_count, worker_type, debug=False):
-        """
-        计算一个生产单元（例如1个工人+N台机器）单个班次的总成本。
-        """
-        # 1. 获取工人配置
+        """计算一个生产单元（例如1个工人+N台机器）单个班次的总成本。"""
         profile = self.WORKER_PROFILES.get(worker_type)
         if not profile:
             raise ValueError(f"未知的工人类型: {worker_type}")
@@ -188,26 +198,20 @@ class QuotationCalculator:
         monthly_salary = profile["monthly_salary"]
         machines_operated = profile["machines_operated"]
 
-        # 2. 计算该工人的单班工资
         worker_salary_per_shift = monthly_salary / (self.WORKING_DAYS_PER_MONTH * self.SHIFTS_PER_DAY)
 
-        # 3. 计算整个生产单元(1个工人+N台机器)的单班总成本
         total_cell_cost_per_shift = (worker_salary_per_shift +
                                      self.OTHER_SALARY_PER_CELL_SHIFT +
                                      self.RENT_PER_CELL_SHIFT +
                                      self.ELECTRICITY_FEE_PER_CELL_SHIFT)
         
-        # 4. 将单元成本分摊到单台机器上
         base_cost_per_machine_shift = total_cell_cost_per_shift / machines_operated
 
-        # 5. 根据针头占用比例，计算产品应分摊的机台成本
         machine_cost_allocation_factor = needles_used / self.NEEDLES_PER_MACHINE
         allocated_cost_per_machine = base_cost_per_machine_shift * machine_cost_allocation_factor
 
-        # 6. 计算整个生产单元(N台机器)的总分摊成本
         total_allocated_machine_cost = allocated_cost_per_machine * machines_operated
 
-        # 7. 加上适用于整个班组的调色费用
         total_coloring_fee = color_count * self.COLORING_FEE_PER_COLOR_PER_SHIFT
         
         final_cost = total_allocated_machine_cost + total_coloring_fee
@@ -234,20 +238,18 @@ if __name__ == "__main__":
     # 1. 创建计算器实例
     calculator = QuotationCalculator()
 
-    # 2. 定义产品参数 (请在此处修改为您想计算的产品信息)
+    # 2. 定义产品参数 (已移除 difficulty_factor)
     product_info = {
-        "length": 5.2,            # 产品长度 (cm)
+        "length": 3.5,            # 产品长度 (cm)
         "width": 3.5,             # 产品宽度 (cm)
         "thickness": 0.3,         # 产品厚度 (cm)
-        "color_count": 6,         # 颜色数量
-        "area_ratio": 0.9,        # 占用面积比例 (70%)
-        "difficulty_factor": 3,   # 难度系数 (3为普通)
-        "order_quantity": 6000    # 订单数量
+        "color_count": 7,         # !! 请修改此处测试不同颜色 !!
+        "area_ratio": 0.7,        # 占用面积比例 (70%)
+        "order_quantity": 5000    # 订单数量
     }
 
     # 3. 以 Debug 模式进行计算
-    # 您会看到详细的计算过程表格
-    calculator.calculate_quote(**product_info, worker_type="skilled", debug=False)
+    calculator.calculate_quote(**product_info, worker_type="skilled", debug=True)
 
     # 4. 如果您只想获取最终结果，不看过程，可以设置 debug=False
     print("\n--- [正式报价] ---")
@@ -255,5 +257,4 @@ if __name__ == "__main__":
     for key, value in final_quote.items():
         if "---" not in key:
             print(f"{key}: {value}")
-
 

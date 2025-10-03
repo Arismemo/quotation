@@ -31,7 +31,6 @@ async def calculate_quote(
             thickness=quote_req.thickness,
             color_count=quote_req.color_count,
             area_ratio=quote_req.area_ratio,
-            difficulty_factor=quote_req.difficulty_factor,
             order_quantity=quote_req.order_quantity,
             worker_type=quote_req.worker_type,
             debug=quote_req.debug
@@ -59,6 +58,7 @@ async def calculate_quote(
                     "other_salary_per_cell_shift": app_settings.other_salary_per_cell_shift,
                     "rent_per_cell_shift": app_settings.rent_per_cell_shift,
                     "electricity_fee_per_cell_shift": app_settings.electricity_fee_per_cell_shift,
+                    "color_output_map": app_settings.color_output_map,
                 },
                 "worker_profiles": [
                     {

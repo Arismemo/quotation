@@ -50,6 +50,23 @@ def build_calculator_from_db(db: Session) -> QuotationCalculator:
         for profile in worker_profiles_list
     }
     
+    # 配置颜色产能映射
+    try:
+        if settings.color_output_map:
+            # 期望格式：[{"min_colors":1,"max_colors":2,"molds_per_shift":150}, ...]
+            color_map = {}
+            for item in settings.color_output_map:
+                min_c = int(item.get("min_colors"))
+                max_c = int(item.get("max_colors"))
+                molds = float(item.get("molds_per_shift"))
+                color_map[(min_c, max_c)] = molds
+            # 仅当映射非空时覆盖
+            if color_map:
+                calc.COLOR_OUTPUT_MAP = color_map
+    except Exception:
+        # 保持计算器默认映射
+        pass
+
     return calc
 
 
@@ -59,7 +76,6 @@ def compute_quote(db: Session,
                   thickness: float,
                   color_count: int,
                   area_ratio: float,
-                  difficulty_factor: float,
                   order_quantity: int,
                   worker_type: str = "standard",
                   debug: bool = False) -> Dict:
@@ -73,7 +89,6 @@ def compute_quote(db: Session,
         thickness=thickness,
         color_count=color_count,
         area_ratio=area_ratio,
-        difficulty_factor=difficulty_factor,
         order_quantity=order_quantity,
         worker_type=worker_type,
         debug=debug

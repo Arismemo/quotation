@@ -8,7 +8,6 @@ class QuoteRequest(BaseModel):
     thickness: float = Field(..., gt=0, description="产品厚度 (cm)")
     color_count: int = Field(..., ge=0, description="颜色数量")
     area_ratio: float = Field(..., gt=0, le=1, description="占用面积比例")
-    difficulty_factor: float = Field(..., gt=0, description="难度系数")
     order_quantity: int = Field(..., gt=0, description="订单数量")
     worker_type: str = Field(default="standard", description="工人类型")
     debug: bool = Field(default=False, description="调试模式")

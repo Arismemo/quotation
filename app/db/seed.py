@@ -18,6 +18,23 @@ def seed_database(db: Session):
     else:
         logger.info("应用设置已存在，跳过")
     
+    # 1.1 预置颜色-单班产模数映射（若为空则填充默认值）
+    try:
+        app_settings = crud.get_app_settings(db)
+        if app_settings and not getattr(app_settings, 'color_output_map', None):
+            logger.info("预置默认 COLOR_OUTPUT_MAP 映射到应用设置")
+            default_color_output_map = [
+                {"min_colors": 1,  "max_colors": 2,  "molds_per_shift": 150},
+                {"min_colors": 3,  "max_colors": 5,  "molds_per_shift": 135},
+                {"min_colors": 6,  "max_colors": 8,  "molds_per_shift": 120},
+                {"min_colors": 9,  "max_colors": 11, "molds_per_shift": 100},
+                {"min_colors": 12, "max_colors": 14, "molds_per_shift": 80},
+                {"min_colors": 15, "max_colors": 18, "molds_per_shift": 60},
+            ]
+            crud.update_app_settings(db, color_output_map=default_color_output_map)
+    except Exception as e:
+        logger.error(f"预置 COLOR_OUTPUT_MAP 失败: {e}")
+    
     # 2. 创建默认工人配置（如果不存在）
     worker_profiles_data = [
         {"name": "skilled", "monthly_salary": 8400, "machines_operated": 3},

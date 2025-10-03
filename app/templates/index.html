@@ -11,7 +11,7 @@
                 <div id="sbUnit" class="text-xl font-bold text-blue-600">-</div>
                 <div class="ml-4 text-xs text-gray-600">
                     <div id="sbLine1">数量：-　预期天数：-</div>
-                    <div id="sbLine2" class="text-gray-500">尺寸：-×-×- cm　颜色：-　面积比例：-　难度：-</div>
+                    <div id="sbLine2" class="text-gray-500">尺寸：-×-×- cm　颜色：-　面积比例：-</div>
                 </div>
             </div>
         </div>
@@ -82,21 +82,7 @@
                 </div>
             </div>
             
-            <div>
-                <label class="group inline-block text-sm font-medium text-gray-700 mb-1 relative">难度系数
-                    <span class="absolute left-0 top-full mt-1 hidden group-hover:block text-xs text-gray-600 bg-white border rounded px-2 py-1 shadow whitespace-nowrap">3为基准；越大表示越难，产能降低；简单工艺可调低</span>
-                </label>
-                <select name="difficulty_factor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
-                    <option value="1">1</option>
-                    <option value="1.5">1.5</option>
-                    <option value="2">2</option>
-                    <option value="2.5">2.5</option>
-                    <option value="3" selected>3</option>
-                    <option value="3.5">3.5</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                </select>
-            </div>
+            
             
             <div>
                 <label class="group inline-block text-sm font-medium text-gray-700 mb-1 relative">订单数量
@@ -218,7 +204,7 @@
         data.thickness = parseFloat(data.thickness);
         data.color_count = parseInt(data.color_count);
         data.area_ratio = parseFloat(data.area_ratio);
-        data.difficulty_factor = parseFloat(data.difficulty_factor);
+        // 难度系数已移除
         data.order_quantity = parseInt(data.order_quantity);
         data.debug = false;
         
@@ -262,7 +248,7 @@
                 const days = (result.需要班数 / 2).toFixed(2);
                 const sbWeight = result['单个产品克重(g)'] ? `　克重：${result['单个产品克重(g)']}g` : '';
                 document.getElementById('sbLine1').textContent = `数量：${data.order_quantity}　预期天数：${days}${sbWeight}`;
-                document.getElementById('sbLine2').textContent = `尺寸：${data.length}×${data.width}×${data.thickness} cm　颜色：${data.color_count}　面积比例：${data.area_ratio}　难度：${data.difficulty_factor}`;
+                document.getElementById('sbLine2').textContent = `尺寸：${data.length}×${data.width}×${data.thickness} cm　颜色：${data.color_count}　面积比例：${data.area_ratio}`;
                 document.getElementById('summaryBar').classList.remove('hidden');
                 
                 // 取消对比模式
@@ -335,7 +321,7 @@
             <div class="col-span-2 md:col-span-4">
                 <div class="text-2xl font-bold text-blue-600">¥${result.产品单价}</div>
                 <div class="text-xs text-gray-600 mt-1">数量：${p.order_quantity ?? ''}　预期天数：${expectedDays}　每模产品数：${result.每模产品数 ?? ''}${weight}</div>
-                <div class="text-xs text-gray-500 mt-1">尺寸：${p.length ?? ''}×${p.width ?? ''}×${p.thickness ?? ''} cm　颜色：${p.color_count ?? ''}　面积比例：${p.area_ratio ?? ''}　难度：${p.difficulty_factor ?? ''}</div>
+                <div class="text-xs text-gray-500 mt-1">尺寸：${p.length ?? ''}×${p.width ?? ''}×${p.thickness ?? ''} cm　颜色：${p.color_count ?? ''}　面积比例：${p.area_ratio ?? ''}</div>
             </div>
         `;
         
@@ -375,7 +361,7 @@
                             <div class="flex-1">
                                 <div class="text-base font-bold text-blue-600">¥${h.unit_price} <span class="text-gray-500 text-xs font-normal">/ 单价</span></div>
                                 <div class="text-xs text-gray-600 mt-1">数量：${p.order_quantity}　预期天数：${days}${weight}</div>
-                                <div class="text-xs text-gray-500 mt-1">尺寸：${p.length}×${p.width}×${p.thickness} cm　颜色：${p.color_count}　面积比例：${p.area_ratio}　难度：${p.difficulty_factor}</div>
+                                <div class="text-xs text-gray-500 mt-1">尺寸：${p.length}×${p.width}×${p.thickness} cm　颜色：${p.color_count}　面积比例：${p.area_ratio}</div>
                                 <div class="text-[11px] text-gray-400 mt-1">${new Date(h.computed_at).toLocaleString('zh-CN')}</div>
                             </div>
                             <button onclick="event.stopPropagation(); toggleFavorite(${h.id}, ${h.is_favorited})"
@@ -445,7 +431,7 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-base font-bold text-blue-600">¥${f.history.unit_price} <span class=\"text-gray-500 text-xs font-normal\">/ 单价</span></div>
                         <div class="text-xs text-gray-600 mt-1">数量：${p.order_quantity}　预期天数：${days}${weight}</div>
-                        <div class="text-xs text-gray-500 mt-1">尺寸：${p.length}×${p.width}×${p.thickness} cm　颜色：${p.color_count}　面积比例：${p.area_ratio}　难度：${p.difficulty_factor}</div>
+                                <div class="text-xs text-gray-500 mt-1">尺寸：${p.length}×${p.width}×${p.thickness} cm　颜色：${p.color_count}　面积比例：${p.area_ratio}</div>
                         <div class="text-[11px] text-gray-400 mt-1">备注：${f.name || '未命名收藏'}｜${new Date(f.created_at).toLocaleString('zh-CN')}</div>
                     </div>
                     ${imageHtml}
@@ -488,7 +474,7 @@
                 document.querySelector('[name="thickness"]').value = payload.thickness;
                 document.querySelector('[name="color_count"]').value = payload.color_count;
                 document.querySelector('[name="area_ratio"]').value = payload.area_ratio;
-                document.querySelector('[name="difficulty_factor"]').value = payload.difficulty_factor;
+                // 难度系数已移除
                 document.querySelector('[name="order_quantity"]').value = payload.order_quantity;
                 document.querySelector('[name="worker_type"]').value = payload.worker_type;
                 

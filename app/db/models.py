@@ -52,6 +52,10 @@ class AppSettings(Base):
     rent_per_cell_shift = Column(Float, nullable=False, default=40.0)
     electricity_fee_per_cell_shift = Column(Float, nullable=False, default=60.0)
     
+    # 颜色数量 -> 单班产模数 映射（用于替代难度系数）
+    # 存储为数组对象，例如：[{"min_colors":1, "max_colors":2, "molds_per_shift":150}, ...]
+    color_output_map = Column(JSON, nullable=True)
+    
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 

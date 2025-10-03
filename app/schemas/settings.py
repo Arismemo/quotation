@@ -41,6 +41,10 @@ class AppSettingsSchema(BaseModel):
     rent_per_cell_shift: Optional[float] = Field(None, ge=0)
     electricity_fee_per_cell_shift: Optional[float] = Field(None, ge=0)
     
+    # 新增：颜色数量 -> 单班产模数 映射
+    # 形如：[{"min_colors":1, "max_colors":2, "molds_per_shift":150}, ...]
+    color_output_map: Optional[list] = None
+    
     class Config:
         from_attributes = True
 
