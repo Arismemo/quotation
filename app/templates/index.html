@@ -16,7 +16,10 @@
             </div>
         </div>
     </div>
-    <!-- 报价表单区域 -->
+    <!-- 主区域：报价（单列） -->
+    <div class="grid grid-cols-1 gap-6">
+    
+    <!-- 报价表单区域（左） -->
     <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-2xl font-bold mb-6 text-gray-800">产品报价计算</h2>
         
@@ -123,6 +126,10 @@
         <div id="quoteError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700 hidden"></div>
     </div>
 
+    
+
+    </div>
+
     <!-- 历史和收藏区域（仅登录用户可见） -->
     <div id="historyFavoriteSection" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
         <!-- 报价历史 -->
@@ -158,6 +165,47 @@
         <p class="text-gray-700">登录后可查看报价历史和收藏 <a href="/login" class="text-blue-600 hover:underline">立即登录</a></p>
     </div>
     
+    <!-- 悬浮：图片识别按钮 -->
+    <button id="openAnalysisWidget" title="图片识别" class="fixed bottom-6 right-6 z-40 bg-blue-600 text-white rounded-full shadow-lg w-14 h-14 flex items-center justify-center hover:bg-blue-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 5a2 2 0 012-2h2l1-1h6l1 1h2a2 2 0 012 2v3H4V5zm0 5h16v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7z"/>
+        </svg>
+    </button>
+
+    <!-- 悬浮：图片识别面板（复用原卡片内容） -->
+    <div id="analysisWidget" class="fixed bottom-24 right-6 z-50 w-[min(90vw,420px)] bg-white rounded-lg shadow-xl border p-5 hidden">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-gray-800">图片识别</h3>
+            <button id="closeAnalysisWidget" class="p-1 rounded hover:bg-gray-100" title="关闭">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">上传待识别图片</label>
+                <input type="file" id="analysisImageInput" accept="image/*" class="w-full px-3 py-2 border rounded-md">
+                <div class="flex items-center justify-end mt-3">
+                    <button type="button" id="analyzeBtn" class="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">开始识别</button>
+                </div>
+                <div id="analysisHint" class="text-xs text-gray-500 mt-1">识别成功后将自动回填到左侧“占用面积比例”。默认算法可在“系统设置 → 图像识别算法”中配置。</div>
+            </div>
+            <div id="analysisPreviewWrap" class="hidden">
+                <div class="text-xs text-gray-500 mb-1">识别结果（绿色为轮廓，红色为外接旋转矩形）：<span id="analysisAlgoTag" class="ml-2 inline-block px-2 py-0.5 text-[11px] rounded bg-blue-50 text-blue-600 border border-blue-200">-</span></div>
+                <img id="analysisPreview" src="" class="max-w-full h-64 object-contain rounded border">
+            </div>
+            <div id="analysisNumbers" class="hidden grid grid-cols-2 gap-3 text-sm text-gray-700">
+                <div>占用面积比例：<span id="analysisAreaRatio">-</span></div>
+                <div>颜色数量：<span id="analysisColorCount">-</span></div>
+            </div>
+            <div id="analysisPaletteWrap" class="hidden mt-2">
+                <div class="text-xs text-gray-500 mb-1">颜色调色板（按占比降序）</div>
+                <div id="analysisPalette" class="grid grid-cols-6 gap-2"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 收藏备注弹窗 -->
     <div id="favoriteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
@@ -697,6 +745,134 @@
             document.getElementById('loginPrompt').classList.add('hidden');
             loadHistory();
             loadFavorites();
+        }
+    });
+
+    // —— 图像分析：上传、调用后端识别并回填占用比例 ——
+    let analysisUploadedPath = null;
+    const analysisFileInput = document.getElementById('analysisImageInput');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const analysisPreviewWrap = document.getElementById('analysisPreviewWrap');
+    const analysisPreview = document.getElementById('analysisPreview');
+    const analysisAlgoTag = document.getElementById('analysisAlgoTag');
+    const analysisWidget = document.getElementById('analysisWidget');
+    const openAnalysisWidget = document.getElementById('openAnalysisWidget');
+    const closeAnalysisWidget = document.getElementById('closeAnalysisWidget');
+
+    // 悬浮窗开关
+    if (openAnalysisWidget && analysisWidget) {
+        openAnalysisWidget.addEventListener('click', () => {
+            analysisWidget.classList.remove('hidden');
+        });
+    }
+    if (closeAnalysisWidget && analysisWidget) {
+        closeAnalysisWidget.addEventListener('click', () => {
+            analysisWidget.classList.add('hidden');
+        });
+    }
+
+    analysisFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+            if (!res.ok) {
+                const err = await res.json();
+                showToast(err.detail || '图片上传失败', 'error');
+                return;
+            }
+            const data = await res.json();
+            analysisUploadedPath = data.path;
+            showToast('图片上传成功');
+        } catch (err) {
+            console.error(err);
+            showToast('图片上传失败', 'error');
+        }
+    });
+
+    analyzeBtn.addEventListener('click', async () => {
+        if (!analysisUploadedPath) {
+            showToast('请先上传图片', 'error');
+            return;
+        }
+        const method = localStorage.getItem('analysisMethod') || 'rembg';
+        try {
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = '识别中...';
+            // 并行请求占用比例与颜色统计
+            const req1 = fetch('/api/analyze/area-ratio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_path: analysisUploadedPath, method })
+            });
+            const req2 = fetch('/api/analyze/colors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_path: analysisUploadedPath, method })
+            });
+            const [res1, res2] = await Promise.all([req1, req2]);
+            if (!res1.ok) {
+                const err = await res1.json();
+                showToast(err.detail || '占用比例识别失败', 'error');
+                return;
+            }
+            if (!res2.ok) {
+                const err = await res2.json();
+                showToast(err.detail || '颜色统计失败', 'error');
+                return;
+            }
+            const data1 = await res1.json();
+            const data2 = await res2.json();
+
+            // 回填占用面积比例
+            const v = parseFloat(data1.area_ratio || 0).toFixed(2);
+            document.getElementById('areaRatio').value = v;
+            document.getElementById('areaRatioNumber').value = v;
+            document.getElementById('areaRatioValue').textContent = v;
+            document.getElementById('analysisAreaRatio').textContent = v;
+
+            // 回填颜色数量（按调色板大小）
+            const colorCount = parseInt(data2.color_count || 0);
+            document.querySelector('[name="color_count"]').value = colorCount;
+            document.getElementById('analysisColorCount').textContent = String(colorCount);
+
+            // 预览与算法标记
+            analysisPreview.src = data1.preview_path;
+            analysisAlgoTag.textContent = data1.method;
+            analysisPreviewWrap.classList.remove('hidden');
+            document.getElementById('analysisNumbers').classList.remove('hidden');
+
+            // 渲染调色板
+            const palWrap = document.getElementById('analysisPaletteWrap');
+            const palDiv = document.getElementById('analysisPalette');
+            if (Array.isArray(data2.palette) && data2.palette.length > 0) {
+                palDiv.innerHTML = data2.palette.map(p => {
+                    const [r,g,b] = p.rgb || [0,0,0];
+                    const ratioPct = Math.round((p.ratio || 0) * 1000) / 10; // 保留1位小数
+                    const hex = '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+                    return `
+                        <div class="border rounded p-1 text-[11px] text-gray-600">
+                            <div class="w-full h-8 rounded" style="background:${hex}"></div>
+                            <div class="mt-1">${hex}</div>
+                            <div>${ratioPct}%</div>
+                        </div>
+                    `;
+                }).join('');
+                palWrap.classList.remove('hidden');
+            } else {
+                palWrap.classList.add('hidden');
+            }
+            showToast('识别成功，已回填占用面积比例与颜色数量');
+            // 触发自动计算（若开启）
+            triggerAutoCalc();
+        } catch (err) {
+            console.error(err);
+            showToast('识别失败', 'error');
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = '开始识别';
         }
     });
 </script>

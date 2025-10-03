@@ -12,3 +12,5 @@ CLAUDE.md
 cookies.txt
 app.log
 app.db
+app/static/uploads
+.venv

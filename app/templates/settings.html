@@ -110,6 +110,21 @@
             </div>
         </div>
         
+        <!-- 图像识别算法（仅前端本地保存） -->
+        <div>
+            <h3 class="text-lg font-semibold mb-3 text-gray-700 border-b pb-2">图像识别算法</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">默认识别算法</label>
+                    <select id="cfgAnalysisMethod" class="w-full px-3 py-2 border rounded-md">
+                        <option value="rembg">rembg（抠图）</option>
+                        <option value="opencv">OpenCV（阈值/轮廓）</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">此配置将保存在浏览器本地，用作识别默认算法。</p>
+                </div>
+            </div>
+        </div>
+
         <!-- 工人配置 -->
         <div>
             <h3 class="text-lg font-semibold mb-3 text-gray-700 border-b pb-2">工人配置</h3>
@@ -200,6 +215,11 @@
         const colorDiv = document.getElementById('colorOutputList');
         const list = Array.isArray(settings.color_output_map) ? settings.color_output_map : [];
         colorDiv.innerHTML = list.map((item, idx) => renderColorOutputRow(idx, item)).join('');
+
+        // 填充本地算法设置
+        const localMethod = localStorage.getItem('analysisMethod') || 'rembg';
+        const sel = document.getElementById('cfgAnalysisMethod');
+        if (sel) sel.value = localMethod;
     }
     
     // 保存设置
@@ -253,6 +273,11 @@
             });
             
             if (response.ok) {
+                // 保存本地算法设置
+                const sel = document.getElementById('cfgAnalysisMethod');
+                if (sel && sel.value) {
+                    localStorage.setItem('analysisMethod', sel.value);
+                }
                 showToast('设置已保存');
                 await loadSettings();
             } else {

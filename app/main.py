@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.db.session import init_db
-from app.api.routers import health, auth, quote, history, favorites, settings as settings_router, upload
+from app.api.routers import health, auth, quote, history, favorites, settings as settings_router, upload, analyze
 import logging
 import os
 
@@ -47,6 +47,7 @@ app.include_router(history.router, prefix="/api")
 app.include_router(favorites.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
+app.include_router(analyze.router, prefix="/api")
 
 
 # ========== 前端页面路由 ==========
