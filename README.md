@@ -1,24 +1,31 @@
 # PVC 卡通制品报价系统
 
-基于 FastAPI + SQLite 的 Web 报价系统，提供产品报价计算、用户登录、历史记录和收藏功能。
+基于 FastAPI + SQLite 的现代化 Web 报价系统，提供产品报价计算、用户认证、历史记录管理和系统配置功能。
 
-## 功能特性
+## 🚀 功能特性
 
-- ✅ **产品报价计算**：根据产品参数自动计算报价（复用原有 `quotation.py` 计算器）
-- ✅ **用户认证**：登录/登出，基于会话的身份验证
-- ✅ **报价历史**：自动记录每次报价结果，支持查看和复用
-- ✅ **报价收藏**：收藏重要的报价记录，便于快速访问
-- ✅ **系统设置**：管理员可修改全局参数（利润率、材料成本、工人配置等）
+- ✅ **智能报价计算**：根据产品参数自动计算报价（复用原有 `quotation.py` 计算器）
+- ✅ **安全用户认证**：基于会话的身份验证，支持密码强度验证
+- ✅ **报价历史管理**：自动记录每次报价结果，支持查看、搜索和导出
+- ✅ **报价收藏系统**：收藏重要的报价记录，便于快速访问
+- ✅ **系统设置管理**：管理员可修改全局参数（利润率、材料成本、工人配置等）
 - ✅ **响应式界面**：基于 Tailwind CSS 的现代化 UI
+- ✅ **图像分析功能**：支持图片上传和面积比例分析
+- ✅ **性能优化**：数据库索引优化、缓存机制、N+1查询优化
+- ✅ **代码质量**：完整的类型提示、代码格式化、测试覆盖
 
-## 技术栈
+## 🛠️ 技术栈
 
-- **后端框架**: FastAPI
-- **数据库**: SQLite + SQLAlchemy 2.x
+- **后端框架**: FastAPI (异步支持)
+- **数据库**: SQLite + SQLAlchemy 2.x (ORM)
 - **模板引擎**: Jinja2
 - **前端样式**: Tailwind CSS (CDN)
-- **密码加密**: Passlib + Bcrypt
+- **密码加密**: Passlib + Bcrypt (安全哈希)
 - **会话管理**: Starlette SessionMiddleware
+- **代码质量**: Black (格式化) + Ruff (Linting) + MyPy (类型检查)
+- **测试框架**: Pytest + Coverage
+- **图像处理**: OpenCV + Pillow + RemBG
+- **缓存机制**: 内存缓存 (可扩展至Redis)
 
 ## 快速开始
 
@@ -59,15 +66,25 @@ python -m app.main
 
 ⚠️ **生产环境请务必修改默认密码！**
 
-## 项目结构
+## 📁 项目结构
 
 ```
 quotation/
 ├── quotation.py                 # 原始报价计算器（不修改）
 ├── requirements.txt             # Python 依赖
+├── pyproject.toml              # 项目配置 (Black, Ruff, MyPy)
+├── pytest.ini                 # 测试配置
+├── .env.example                # 环境变量示例
 ├── README.md                    # 本文档
 ├── DESIGN.md                    # 设计文档
+├── REFACTORING_PLAN.md          # 重构计划
 ├── app.db                       # SQLite 数据库（首次启动自动创建）
+├── tests/                       # 测试文件
+│   ├── conftest.py             # 测试配置
+│   ├── test_auth.py            # 认证测试
+│   ├── test_models.py          # 模型测试
+│   ├── test_services.py        # 服务测试
+│   └── test_quote.py           # 报价测试
 └── app/
     ├── main.py                  # FastAPI 应用入口
     ├── config.py                # 配置文件
@@ -76,23 +93,32 @@ quotation/
     │   └── routers/             # API 路由
     │       ├── auth.py          # 认证相关
     │       ├── quote.py         # 报价计算
-    │       ├── history.py       # 历史记录
-    │       ├── favorites.py     # 收藏管理
-    │       ├── settings.py      # 系统设置
-    │       └── health.py        # 健康检查
+    │       ├── history.py      # 历史记录
+    │       ├── favorites.py    # 收藏管理
+    │       ├── settings.py     # 系统设置
+    │       ├── upload.py       # 文件上传
+    │       ├── analyze.py      # 图像分析
+    │       └── health.py       # 健康检查
     ├── db/
-    │   ├── models.py            # 数据库模型
+    │   ├── models.py            # 数据库模型 (带索引优化)
     │   ├── session.py           # 数据库会话
-    │   ├── crud.py              # 数据访问层
+    │   ├── crud.py              # 数据访问层 (N+1优化)
     │   └── seed.py              # 种子数据
     ├── schemas/                 # Pydantic 模型
-    │   ├── auth.py
-    │   ├── quote.py
-    │   ├── settings.py
-    │   └── history.py
+    │   ├── auth.py             # 认证模型
+    │   ├── quote.py            # 报价模型
+    │   ├── settings.py         # 设置模型
+    │   └── history.py          # 历史模型
     ├── services/                # 业务逻辑层
-    │   ├── auth_service.py
-    │   └── calculator_service.py
+    │   ├── auth_service.py     # 认证服务
+    │   ├── calculator_service.py # 计算服务
+    │   ├── image_analysis_service.py # 图像分析
+    │   └── cache_service.py    # 缓存服务
+    ├── utils/                   # 工具模块
+    │   ├── exceptions.py       # 异常处理
+    │   ├── responses.py        # 响应工具
+    │   ├── validation.py       # 验证工具
+    │   └── security.py         # 安全工具
     ├── templates/               # Jinja2 模板
     │   ├── base.html
     │   ├── index.html
@@ -201,7 +227,28 @@ export DEBUG="False"
 3. **数据库备份**：定期备份 `app.db` 文件
 4. **性能优化**：SQLite 适合中小规模，高并发请迁移到 PostgreSQL/MySQL
 
-## 开发与调试
+## 🧪 开发与调试
+
+### 代码质量工具
+
+```bash
+# 代码格式化
+black .
+
+# 代码检查
+ruff check . --fix
+
+# 类型检查
+mypy app/ --ignore-missing-imports
+
+# 运行测试
+pytest tests/ -v
+
+# 测试覆盖率
+pytest tests/ --cov=app --cov-report=html
+```
+
+### 开发模式
 
 ```bash
 # 开发模式（自动重载）
@@ -212,6 +259,16 @@ uvicorn app.main:app --reload
 
 # 查看日志
 # 日志会输出到控制台
+```
+
+### 环境配置
+
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑环境变量
+nano .env
 ```
 
 ## 许可证
