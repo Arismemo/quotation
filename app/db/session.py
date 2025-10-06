@@ -1,8 +1,10 @@
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.config import settings
 from app.db.models import Base
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +12,9 @@ logger = logging.getLogger(__name__)
 engine = create_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+    connect_args=(
+        {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+    ),
 )
 
 # 创建会话工厂
@@ -22,9 +26,10 @@ def init_db():
     logger.info("正在初始化数据库...")
     Base.metadata.create_all(bind=engine)
     logger.info("数据库表创建完成")
-    
+
     # 导入并执行种子
     from app.db.seed import seed_database
+
     db = SessionLocal()
     try:
         seed_database(db)
@@ -40,5 +45,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-

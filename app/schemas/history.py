@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Any
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class HistoryItemResponse(BaseModel):
@@ -12,7 +13,7 @@ class HistoryItemResponse(BaseModel):
     request_payload: dict
     result_payload: dict
     is_favorited: Optional[bool] = False  # 前端用于显示是否已收藏
-    
+
     class Config:
         from_attributes = True
 
@@ -30,8 +31,6 @@ class FavoriteItemResponse(BaseModel):
     created_at: datetime
     # 关联的历史记录信息
     history: HistoryItemResponse
-    
+
     class Config:
         from_attributes = True
-
-
