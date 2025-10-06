@@ -162,10 +162,16 @@
                         if (currentUser.is_admin) {
                             document.getElementById('settingsLink').classList.remove('hidden');
                         }
+                        return true;
                     }
+                    return false;
                 }
+                currentUser = null;
+                return false;
             } catch (error) {
                 console.error('获取用户信息失败:', error);
+                currentUser = null;
+                return false;
             }
         }
 
