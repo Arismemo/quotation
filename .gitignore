@@ -14,3 +14,7 @@ app.log
 app.db
 app/static/uploads
 .venv
+
+app.db
+.env
+test_image.png

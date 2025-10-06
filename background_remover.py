@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional
 
 import cv2
 import numpy as np
@@ -23,7 +23,7 @@ class BackgroundRemover:
         mask = cv2.erode(mask, k3, iterations=1)
         return mask
 
-    def rembg_mask_and_rgb(self, image_bytes: bytes) -> Tuple[np.ndarray, np.ndarray]:
+    def rembg_mask_and_rgb(self, image_bytes: bytes) -> tuple[np.ndarray, np.ndarray]:
         result_bytes = remove(image_bytes)
         rgba = Image.open(BytesIO(result_bytes)).convert("RGBA")
         rgba_np = np.array(rgba)
@@ -37,7 +37,9 @@ class BackgroundRemover:
         rgb = cv2.GaussianBlur(rgb, (3, 3), 0)
         return mask, rgb
 
-    def opencv_mask_and_rgb(self, image_bgr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def opencv_mask_and_rgb(
+        self, image_bgr: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         bgr = image_bgr
         gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -52,7 +54,13 @@ class BackgroundRemover:
         rgb = cv2.GaussianBlur(rgb, (3, 3), 0)
         return mask, rgb
 
-    def get_mask_and_rgb(self, *, method: Literal["rembg", "opencv"], image_bgr: Optional[np.ndarray], image_bytes: Optional[bytes]) -> Tuple[np.ndarray, np.ndarray]:
+    def get_mask_and_rgb(
+        self,
+        *,
+        method: Literal["rembg", "opencv"],
+        image_bgr: Optional[np.ndarray],
+        image_bytes: Optional[bytes],
+    ) -> tuple[np.ndarray, np.ndarray]:
         if method == "rembg":
             if image_bytes is None:
                 raise ValueError("rembg 需要 image_bytes")
@@ -62,5 +70,3 @@ class BackgroundRemover:
                 raise ValueError("opencv 需要 image_bgr")
             return self.opencv_mask_and_rgb(image_bgr)
         raise ValueError("不支持的抠图方法")
-
-

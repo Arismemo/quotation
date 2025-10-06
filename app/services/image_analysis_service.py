@@ -1,16 +1,14 @@
-import os
-import uuid
 import logging
-from pathlib import Path
-from typing import Literal, Tuple, Optional, Dict
+import sys
+import uuid
 from io import BytesIO
+from pathlib import Path
+from typing import Literal, Optional
 
 import cv2
 import numpy as np
 from PIL import Image
 from rembg import remove
-import sys
-
 
 STATIC_DIR = Path("app/static")
 UPLOADS_DIR = STATIC_DIR / "uploads"
@@ -28,7 +26,9 @@ def _ensure_uint8(image: np.ndarray) -> np.ndarray:
 
 
 def _find_largest_contour(binary_mask: np.ndarray) -> Optional[np.ndarray]:
-    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(
+        binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
     if not contours:
         return None
     largest = max(contours, key=cv2.contourArea)
@@ -37,7 +37,9 @@ def _find_largest_contour(binary_mask: np.ndarray) -> Optional[np.ndarray]:
     return largest
 
 
-def _compute_ratio_from_contour(contour: np.ndarray) -> Tuple[float, Tuple[np.ndarray, Tuple[float, float], float]]:
+def _compute_ratio_from_contour(
+    contour: np.ndarray,
+) -> tuple[float, tuple[np.ndarray, tuple[float, float], float]]:
     area = float(cv2.contourArea(contour))
     rect = cv2.minAreaRect(contour)  # ((cx,cy),(w,h),angle)
     (w, h) = rect[1]
@@ -58,7 +60,7 @@ def _draw_preview(base_bgr: np.ndarray, contour: np.ndarray, rect) -> np.ndarray
     return preview
 
 
-def analyze_with_opencv(image_bgr: np.ndarray) -> Tuple[float, np.ndarray]:
+def analyze_with_opencv(image_bgr: np.ndarray) -> tuple[float, np.ndarray]:
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
@@ -96,7 +98,7 @@ def analyze_with_opencv(image_bgr: np.ndarray) -> Tuple[float, np.ndarray]:
     return ratio, preview
 
 
-def analyze_with_rembg(image_bytes: bytes) -> Tuple[float, np.ndarray]:
+def analyze_with_rembg(image_bytes: bytes) -> tuple[float, np.ndarray]:
     # Remove background to RGBA bytes
     result_bytes = remove(image_bytes)
     rgba = Image.open(BytesIO(result_bytes)).convert("RGBA")
@@ -127,7 +129,7 @@ def save_preview(preview_bgr: np.ndarray) -> str:
     return f"/static/uploads/analysis/{filename}"
 
 
-def load_image_bgr_from_path(static_path: str) -> Tuple[np.ndarray, bytes]:
+def load_image_bgr_from_path(static_path: str) -> tuple[np.ndarray, bytes]:
     # static_path like "/static/uploads/xxx.png"
     if not static_path.startswith("/static/"):
         raise ValueError("非法路径")
@@ -143,11 +145,13 @@ def load_image_bgr_from_path(static_path: str) -> Tuple[np.ndarray, bytes]:
     return img, data
 
 
-def analyze_area_ratio(static_path: str, method: Literal["opencv", "rembg"]) -> Tuple[float, str]:
+def analyze_area_ratio(
+    static_path: str, method: Literal["opencv", "rembg"]
+) -> tuple[float, str]:
     # 使用新模块进行抠图与面积计算
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from background_remover import BackgroundRemover  # type: ignore
     from area_ratio_calculator import AreaRatioCalculator  # type: ignore
+    from background_remover import BackgroundRemover  # type: ignore
 
     image_bgr, image_bytes = load_image_bgr_from_path(static_path)
     remover = BackgroundRemover()
@@ -163,7 +167,7 @@ def analyze_area_ratio(static_path: str, method: Literal["opencv", "rembg"]) -> 
     return ratio, preview_path
 
 
-def analyze_colors(static_path: str) -> Dict[str, object]:
+def analyze_colors(static_path: str) -> dict[str, object]:
     """统计主体颜色数量与调色板（改为使用 color_counter 模块）。"""
     # 解析文件绝对路径
     if not static_path.startswith("/static/"):
@@ -177,7 +181,7 @@ def analyze_colors(static_path: str) -> Dict[str, object]:
     # 导入 color_counter 并调用
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     try:
-        from color_counter import ColorAnalyzer, count_product_colors_from_mask_rgb  # type: ignore
+        from color_counter import count_product_colors_from_mask_rgb  # type: ignore
     except Exception as e:  # pragma: no cover
         logger.exception("[colors] failed to import color_counter: %s", e)
         raise ImportError("无法导入 color_counter 模块") from e
@@ -185,18 +189,32 @@ def analyze_colors(static_path: str) -> Dict[str, object]:
     # 复用我们已有抠图流程，避免重复IO
     image_bgr, image_bytes = load_image_bgr_from_path(static_path)
     from background_remover import BackgroundRemover  # type: ignore
+
     remover = BackgroundRemover()
     # 默认用 rembg 抠图获得 mask 和 rgb（白底合成）
-    mask, rgb = remover.get_mask_and_rgb(method="rembg", image_bgr=None, image_bytes=image_bytes)
+    mask, rgb = remover.get_mask_and_rgb(
+        method="rembg", image_bgr=None, image_bytes=image_bytes
+    )
     try:
-        logger.info("[colors] mask pixels=%d rgb_shape=%s", int((mask>0).sum()), str(rgb.shape))
+        logger.info(
+            "[colors] mask pixels=%d rgb_shape=%s",
+            int((mask > 0).sum()),
+            str(rgb.shape),
+        )
     except Exception:
         logger.warning("[colors] failed to log mask/rgb shape")
 
     # 用兼容方法直接基于 mask+rgb 统计颜色
     try:
-        num_colors, colors, percentages = count_product_colors_from_mask_rgb(mask, rgb, k_range=(2, 10), min_percentage=5.0)
-        logger.info("[colors] clustering done num_colors=%s colors_len=%s pct_len=%s", str(num_colors), str(len(colors) if colors else 0), str(len(percentages) if percentages else 0))
+        num_colors, colors, percentages = count_product_colors_from_mask_rgb(
+            mask, rgb, k_range=(2, 10), min_percentage=5.0
+        )
+        logger.info(
+            "[colors] clustering done num_colors=%s colors_len=%s pct_len=%s",
+            str(num_colors),
+            str(len(colors) if colors else 0),
+            str(len(percentages) if percentages else 0),
+        )
     except Exception as e:
         logger.exception("[colors] clustering error: %s", e)
         raise
@@ -208,12 +226,12 @@ def analyze_colors(static_path: str) -> Dict[str, object]:
     palette = []
     if colors and percentages:
         for rgb, pct in zip(colors, percentages):
-            palette.append({
-                "rgb": [int(rgb[0]), int(rgb[1]), int(rgb[2])],
-                "count": 0,  # 外部不需要像素计数，保留字段
-                "ratio": round(float(pct) / 100.0, 6)
-            })
+            palette.append(
+                {
+                    "rgb": [int(rgb[0]), int(rgb[1]), int(rgb[2])],
+                    "count": 0,  # 外部不需要像素计数，保留字段
+                    "ratio": round(float(pct) / 100.0, 6),
+                }
+            )
 
     return {"color_count": int(num_colors), "palette": palette}
-
-
