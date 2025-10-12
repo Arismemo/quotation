@@ -18,3 +18,4 @@ app/static/uploads
 app.db
 .env
 test_image.png
+.uvicorn.pid
