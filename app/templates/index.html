@@ -96,11 +96,17 @@
             
             <input type="hidden" name="worker_type" id="workerTypeInput" value="standard">
 
-            <div class="md:col-span-3 flex items-center justify-end gap-4 pt-2">
-                <label class="inline-flex items-center text-sm text-gray-600 select-none cursor-pointer">
-                    <input id="autoCalc" type="checkbox" class="mr-2 w-4 h-4 cursor-pointer">
-                    <span>自动计算</span>
-                </label>
+            <div class="md:col-span-3 flex items-center justify-between pt-2">
+                <div class="flex items-center gap-4">
+                    <label class="inline-flex items-center text-sm text-gray-600 select-none cursor-pointer">
+                        <input id="autoCalc" type="checkbox" class="mr-2 w-4 h-4 cursor-pointer">
+                        <span>自动计算</span>
+                    </label>
+                    <label class="inline-flex items-center text-sm text-gray-600 select-none cursor-pointer">
+                        <input id="debugMode" type="checkbox" class="mr-2 w-4 h-4 cursor-pointer">
+                        <span>调试模式</span>
+                    </label>
+                </div>
                 <button type="submit" id="quoteButton" class="min-w-[160px] bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 flex items-center justify-center shadow">
                     <span id="quoteButtonText">计算报价</span>
                     <div id="quoteSpinner" class="spinner ml-2 hidden"></div>
@@ -124,6 +130,21 @@
         </div>
         
         <div id="quoteError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700 hidden"></div>
+        
+        <!-- 调试信息区域 -->
+        <div id="debugInfo" class="mt-6 hidden">
+            <div class="bg-gray-50 border border-gray-200 rounded-md">
+                <button id="debugToggle" class="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-100 transition-colors">
+                    <span class="font-medium text-gray-700">调试信息</span>
+                    <svg id="debugArrow" class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div id="debugContent" class="hidden px-4 pb-4">
+                    <div id="debugInfoContent" class="space-y-4 text-sm"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     
@@ -346,7 +367,7 @@
         data.area_ratio = parseFloat(data.area_ratio);
         // 难度系数已移除
         data.order_quantity = parseInt(data.order_quantity);
-        data.debug = false;
+        data.debug = document.getElementById('debugMode').checked;
         
         const button = document.getElementById('quoteButton');
         const buttonText = document.getElementById('quoteButtonText');
@@ -374,6 +395,14 @@
                 currentQuoteHistoryId = result.history_id || null;
                 
                 displayQuoteResult(result, data);
+                
+                // 处理调试信息
+                if (data.debug && result.debug_info) {
+                    displayDebugInfo(result.debug_info);
+                } else {
+                    hideDebugInfo();
+                }
+                
                 // 如果已登录，刷新历史列表并显示收藏按钮
                 if (currentUser) {
                     loadHistory();
@@ -1171,6 +1200,191 @@
             `;
         }
     });
+    
+    // 调试信息相关函数
+    function displayDebugInfo(debugInfo) {
+        const debugDiv = document.getElementById('debugInfo');
+        const debugContent = document.getElementById('debugInfoContent');
+        
+        debugDiv.classList.remove('hidden');
+        
+        let html = '';
+        
+        // 输入参数
+        if (debugInfo.input_params) {
+            html += createDebugSection('输入参数', debugInfo.input_params);
+        }
+        
+        // 产能计算
+        if (debugInfo.capacity_calculation) {
+            html += createDebugSection('产能计算', debugInfo.capacity_calculation);
+        }
+        
+        // 材料成本
+        if (debugInfo.material_cost) {
+            html += createDebugSection('材料成本计算', debugInfo.material_cost);
+        }
+        
+        // 班次成本
+        if (debugInfo.shift_cost) {
+            html += createDebugSection('班次成本计算', debugInfo.shift_cost);
+        }
+        
+        // 调机费
+        if (debugInfo.setup_cost) {
+            html += createDebugSection('调机费计算', debugInfo.setup_cost);
+        }
+        
+        // 总成本
+        if (debugInfo.total_cost) {
+            html += createDebugSection('总成本计算', debugInfo.total_cost);
+        }
+        
+        // 系统参数
+        if (debugInfo.system_params) {
+            html += createDebugSection('系统参数', debugInfo.system_params);
+        }
+        
+        // 工人配置
+        if (debugInfo.worker_profile) {
+            html += createDebugSection('工人配置', debugInfo.worker_profile);
+        }
+        
+        // 颜色产能映射
+        if (debugInfo.color_output_map) {
+            html += createDebugSection('颜色产能映射', debugInfo.color_output_map);
+        }
+        
+        debugContent.innerHTML = html;
+    }
+    
+    function createDebugSection(title, data) {
+        let html = `<div class="bg-white border border-gray-200 rounded-md p-3">
+            <h4 class="font-medium text-gray-800 mb-2 border-b pb-1">${title}</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">`;
+        
+        for (const [key, value] of Object.entries(data)) {
+            html += `<div class="flex justify-between">
+                <span class="text-gray-600">${key}:</span>
+                <span class="font-mono text-gray-800">${value}</span>
+            </div>`;
+        }
+        
+        html += '</div></div>';
+        return html;
+    }
+    
+    function hideDebugInfo() {
+        const debugDiv = document.getElementById('debugInfo');
+        debugDiv.classList.add('hidden');
+    }
+    
+    // 调试信息折叠/展开
+    document.getElementById('debugToggle').addEventListener('click', function() {
+        const content = document.getElementById('debugContent');
+        const arrow = document.getElementById('debugArrow');
+        
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            arrow.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    // 表单数据持久化功能
+    const FORM_STORAGE_KEY = 'quotation_form_data';
+    
+    function saveFormData() {
+        const form = document.getElementById('quoteForm');
+        const formData = new FormData(form);
+        const data = {};
+        
+        // 收集所有表单字段
+        for (const [key, value] of formData.entries()) {
+            data[key] = value;
+        }
+        
+        // 保存复选框状态
+        data.autoCalc = document.getElementById('autoCalc').checked;
+        data.debugMode = document.getElementById('debugMode').checked;
+        
+        // 保存到localStorage
+        try {
+            localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.warn('无法保存表单数据到localStorage:', e);
+        }
+    }
+    
+    function loadFormData() {
+        try {
+            const savedData = localStorage.getItem(FORM_STORAGE_KEY);
+            if (!savedData) return;
+            
+            const data = JSON.parse(savedData);
+            
+            // 恢复表单字段
+            for (const [key, value] of Object.entries(data)) {
+                if (key === 'autoCalc' || key === 'debugMode') continue;
+                
+                const element = document.querySelector(`[name="${key}"]`);
+                if (element) {
+                    element.value = value;
+                }
+            }
+            
+            // 恢复复选框状态
+            if (data.autoCalc !== undefined) {
+                document.getElementById('autoCalc').checked = data.autoCalc;
+            }
+            if (data.debugMode !== undefined) {
+                document.getElementById('debugMode').checked = data.debugMode;
+            }
+            
+            console.log('表单数据已恢复');
+        } catch (e) {
+            console.warn('无法从localStorage恢复表单数据:', e);
+        }
+    }
+    
+    function clearFormData() {
+        try {
+            localStorage.removeItem(FORM_STORAGE_KEY);
+            console.log('表单数据已清除');
+        } catch (e) {
+            console.warn('无法清除localStorage中的表单数据:', e);
+        }
+    }
+    
+    // 页面加载时恢复表单数据
+    document.addEventListener('DOMContentLoaded', function() {
+        loadFormData();
+        
+        // 为所有表单输入添加自动保存
+        const form = document.getElementById('quoteForm');
+        const inputs = form.querySelectorAll('input, select');
+        
+        inputs.forEach(input => {
+            input.addEventListener('input', saveFormData);
+            input.addEventListener('change', saveFormData);
+        });
+        
+        // 为复选框添加自动保存
+        document.getElementById('autoCalc').addEventListener('change', saveFormData);
+        document.getElementById('debugMode').addEventListener('change', saveFormData);
+    });
+    
+    // 表单提交成功后清除保存的数据（可选）
+    // 如果希望提交后清除数据，可以取消注释下面的代码
+    /*
+    document.getElementById('quoteForm').addEventListener('submit', function() {
+        setTimeout(() => {
+            clearFormData();
+        }, 1000); // 延迟1秒清除，确保用户能看到结果
+    });
+    */
 </script>
 {% endblock %}
 

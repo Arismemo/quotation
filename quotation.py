@@ -293,16 +293,16 @@ if __name__ == "__main__":
 
     # 2. 定义产品参数 (已移除 difficulty_factor)
     product_info = {
-        "length": 3.5,  # 产品长度 (cm)
-        "width": 3.5,  # 产品宽度 (cm)
-        "thickness": 0.3,  # 产品厚度 (cm)
-        "color_count": 7,  # !! 请修改此处测试不同颜色 !!
-        "area_ratio": 0.7,  # 占用面积比例 (70%)
-        "order_quantity": 5000,  # 订单数量
+        "length": 3,  # 产品长度 (cm)
+        "width": 2.5,  # 产品宽度 (cm)
+        "thickness": 0.4,  # 产品厚度 (cm)
+        "color_count": 2,  # !! 请修改此处测试不同颜色 !!
+        "area_ratio": 0.85,  # 占用面积比例 (70%)
+        "order_quantity": 100000,  # 订单数量
     }
 
     # 3. 以 Debug 模式进行计算
-    calculator.calculate_quote(**product_info, worker_type="skilled", debug=True)
+    calculator.calculate_quote(**product_info, worker_type="standard", debug=True)
 
     # 4. 如果您只想获取最终结果，不看过程，可以设置 debug=False
     print("\n--- [正式报价] ---")
