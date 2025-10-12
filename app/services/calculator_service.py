@@ -32,7 +32,7 @@ def build_calculator_from_db(db: Session) -> QuotationCalculator:
     calc.MATERIAL_PRICE_PER_GRAM = settings["material_price_per_gram"]
     calc.MOLD_EDGE_LENGTH = settings["mold_edge_length"]
     calc.MOLD_SPACING = settings["mold_spacing"]
-    calc.BASE_MOLDS_PER_SHIFT = settings["base_molds_per_shift"]
+    # 注意：BASE_MOLDS_PER_SHIFT 已移除，现在使用 COLOR_OUTPUT_MAP
     calc.WORKING_DAYS_PER_MONTH = settings["working_days_per_month"]
     calc.SHIFTS_PER_DAY = settings["shifts_per_day"]
     calc.NEEDLES_PER_MACHINE = settings["needles_per_machine"]

@@ -15,7 +15,7 @@ class QuotationCalculator:
         # --- 后台参数设定 (可在此处修改参数) ---
 
         # 利润与损耗
-        self.PROFIT_MARGIN = 0.30  # 利润率 (例如 30%)
+        self.PROFIT_MARGIN = 0.20  # 利润率 (20%)
         self.WASTE_RATE = 0.10  # 废品率 (例如 10%)
 
         # 材料参数
@@ -25,7 +25,7 @@ class QuotationCalculator:
         # 产能参数
         self.MOLD_EDGE_LENGTH = 26  # 模具可用边长 (cm)
         self.MOLD_SPACING = 1  # 产品间距 (cm)
-        self.WORKING_DAYS_PER_MONTH = 26  # 每月工作天数
+        self.WORKING_DAYS_PER_MONTH = 30  # 每月工作天数
         self.SHIFTS_PER_DAY = 2  # 每日班数
 
         # !! 新增：颜色数量与单班产量的关系映射表 !!
@@ -288,8 +288,28 @@ class QuotationCalculator:
 
 # --- 示例：如何使用这个计算器 ---
 if __name__ == "__main__":
-    # 1. 创建计算器实例
-    calculator = QuotationCalculator()
+    import os
+    import sys
+    
+    # 添加项目路径以导入应用模块
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    
+    try:
+        # 尝试使用数据库配置
+        from app.services.calculator_service import build_calculator_from_db
+        from app.db.session import SessionLocal
+        
+        print("使用数据库配置进行计算...")
+        db = SessionLocal()
+        calculator = build_calculator_from_db(db)
+        db.close()
+        
+        print(f"当前配置 - 利润率: {calculator.PROFIT_MARGIN:.1%}, 每月工作天数: {calculator.WORKING_DAYS_PER_MONTH}天")
+        
+    except ImportError as e:
+        print(f"无法导入数据库模块 ({e})，使用默认配置...")
+        calculator = QuotationCalculator()
+        print(f"默认配置 - 利润率: {calculator.PROFIT_MARGIN:.1%}, 每月工作天数: {calculator.WORKING_DAYS_PER_MONTH}天")
 
     # 2. 定义产品参数 (已移除 difficulty_factor)
     product_info = {
@@ -307,7 +327,7 @@ if __name__ == "__main__":
     # 4. 如果您只想获取最终结果，不看过程，可以设置 debug=False
     print("\n--- [正式报价] ---")
     final_quote = calculator.calculate_quote(
-        **product_info, worker_type="skilled", debug=False
+        **product_info, worker_type="standard", debug=False
     )
     for key, value in final_quote.items():
         if "---" not in key:
