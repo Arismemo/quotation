@@ -15,9 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== User CRUD ====================
-def create_user(db: Session, username: str, password_hash: str) -> User:
+def create_user(
+    db: Session, username: str, password_hash: str, is_admin: bool = False
+) -> User:
     """创建新用户"""
-    user = User(username=username, password_hash=password_hash)
+    user = User(username=username, password_hash=password_hash, is_admin=is_admin)
     db.add(user)
     db.commit()
     db.refresh(user)
