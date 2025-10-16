@@ -1,0 +1,45 @@
+networks:
+  quotation_net:
+    name: quotation_net
+    driver: bridge
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    image: quotation-backend:latest
+    container_name: quotation-backend
+    environment:
+      - DATABASE_URL=sqlite:////data/app.db
+      - SESSION_SECRET=${SESSION_SECRET:-change-me}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - DEBUG=${DEBUG:-False}
+    volumes:
+      - ../data/sqlite:/data
+      - ../data/uploads:/app/app/static/uploads
+    networks:
+      - quotation_net
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    image: quotation-frontend:latest
+    container_name: quotation-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - quotation_net
+    ports:
+      - "8080:80"
+
