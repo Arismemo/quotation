@@ -41,5 +41,5 @@ services:
     networks:
       - quotation_net
     ports:
-      - "8080:80"
+      - "10001:80"
 
