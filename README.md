@@ -33,14 +33,15 @@
 
 - Python 3.8+
 - pip
+- Docker / Docker Compose（可选，推荐）
 
-### 2. 安装依赖
+### 2. 安装依赖（本地运行）
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. 启动应用
+### 3. 启动应用（本地运行）
 
 ```bash
 # 方式一：使用 uvicorn 直接运行
@@ -50,111 +51,68 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 python -m app.main
 ```
 
-### 4. 访问应用
+### 4. 启动应用（Docker Compose 推荐）
 
-- **首页（报价计算）**: http://localhost:8000
+```bash
+# 复制环境变量示例并按需修改
+cp deploy/env/.env.example .env  # 可选：在 deploy/docker-compose.yml 同目录外也会生效（通过变量传入）
+
+# 一键构建并启动（使用 deploy 下的 compose 文件）
+docker compose -f deploy/docker-compose.yml up -d --build
+
+# 关闭
+# docker compose -f deploy/docker-compose.yml down
+```
+
+### 5. 访问应用
+
+- **前端入口（经 Nginx 反代）**: http://localhost:8080
+- **后端直连**: http://localhost:8000
 - **登录页面**: http://localhost:8000/login
 - **系统设置**: http://localhost:8000/settings （仅管理员）
 - **API 文档**: http://localhost:8000/docs
+- **健康检查**: http://localhost:8000/api/health
 
-### 5. 默认账户
+### 6. 默认账户
 
 首次启动会自动创建管理员账户：
 
 - **用户名**: `admin`
 - **密码**: `admin`
 
-⚠️ **生产环境请务必修改默认密码！**
+⚠️ 生产环境请务必修改默认密码！
 
-## 📁 项目结构
+## 📁 项目结构（已整理）
 
 ```
 quotation/
-├── quotation.py                 # 原始报价计算器（不修改）
-├── requirements.txt             # Python 依赖
-├── pyproject.toml              # 项目配置 (Black, Ruff, MyPy)
-├── pytest.ini                 # 测试配置
-├── .env.example                # 环境变量示例
-├── README.md                    # 本文档
-├── DESIGN.md                    # 设计文档
-├── REFACTORING_PLAN.md          # 重构计划
-├── app.db                       # SQLite 数据库（首次启动自动创建）
-├── tests/                       # 测试文件
-│   ├── conftest.py             # 测试配置
-│   ├── test_auth.py            # 认证测试
-│   ├── test_models.py          # 模型测试
-│   ├── test_services.py        # 服务测试
-│   └── test_quote.py           # 报价测试
-└── app/
-    ├── main.py                  # FastAPI 应用入口
-    ├── config.py                # 配置文件
-    ├── deps.py                  # 依赖注入
-    ├── api/
-    │   └── routers/             # API 路由
-    │       ├── auth.py          # 认证相关
-    │       ├── quote.py         # 报价计算
-    │       ├── history.py      # 历史记录
-    │       ├── favorites.py    # 收藏管理
-    │       ├── settings.py     # 系统设置
-    │       ├── upload.py       # 文件上传
-    │       ├── analyze.py      # 图像分析
-    │       └── health.py       # 健康检查
-    ├── db/
-    │   ├── models.py            # 数据库模型 (带索引优化)
-    │   ├── session.py           # 数据库会话
-    │   ├── crud.py              # 数据访问层 (N+1优化)
-    │   └── seed.py              # 种子数据
-    ├── schemas/                 # Pydantic 模型
-    │   ├── auth.py             # 认证模型
-    │   ├── quote.py            # 报价模型
-    │   ├── settings.py         # 设置模型
-    │   └── history.py          # 历史模型
-    ├── services/                # 业务逻辑层
-    │   ├── auth_service.py     # 认证服务
-    │   ├── calculator_service.py # 计算服务
-    │   ├── image_analysis_service.py # 图像分析
-    │   └── cache_service.py    # 缓存服务
-    ├── utils/                   # 工具模块
-    │   ├── exceptions.py       # 异常处理
-    │   ├── responses.py        # 响应工具
-    │   ├── validation.py       # 验证工具
-    │   └── security.py         # 安全工具
-    ├── templates/               # Jinja2 模板
-    │   ├── base.html
-    │   ├── index.html
-    │   ├── login.html
-    │   └── settings.html
-    └── static/                  # 静态资源
-        ├── css/
-        └── js/
+├── app/                       # FastAPI 应用
+│   ├── api/routers/           # API 路由
+│   ├── db/                    # 数据库模型/会话/种子
+│   ├── schemas/               # Pydantic 模型
+│   ├── services/              # 业务逻辑与封装
+│   ├── utils/                 # 工具模块
+│   ├── templates/             # Jinja2 模板
+│   └── static/                # 静态资源（uploads 在 data/）
+├── deploy/                    # 部署资产（唯一 Compose 位置）
+│   ├── docker-compose.yml
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.frontend
+│   ├── nginx/
+│   │   └── nginx.conf
+│   └── env/
+│       └── .env.example
+├── data/                      # 本地数据卷（不纳入版本控制）
+│   ├── sqlite/                # SQLite 文件挂载到容器 /data
+│   └── uploads/               # 上传目录挂载到容器 /app/app/static/uploads
+├── docs/                      # 文档归档（设计/计划/说明）
+├── scripts/                   # 辅助/示例脚本
+├── quotation.py               # 原始计算器（被服务层引用）
+├── requirements.txt
+├── pyproject.toml
+├── pytest.ini
+└── README.md
 ```
-
-## API 端点
-
-### 认证
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/logout` - 用户登出
-- `GET /api/auth/me` - 获取当前用户信息
-
-### 报价
-- `POST /api/quote` - 计算报价（自动记录历史）
-
-### 历史记录
-- `GET /api/history` - 获取历史列表（分页）
-- `GET /api/history/{id}` - 获取单条历史详情
-- `DELETE /api/history/{id}` - 删除历史记录
-
-### 收藏
-- `GET /api/favorites` - 获取收藏列表
-- `POST /api/favorites` - 添加收藏
-- `DELETE /api/favorites/{id}` - 取消收藏
-
-### 系统设置（仅管理员）
-- `GET /api/settings` - 获取系统设置
-- `PUT /api/settings` - 更新系统设置
-
-### 健康检查
-- `GET /api/health` - 健康检查
 
 ## 环境变量配置
 
@@ -162,17 +120,17 @@ quotation/
 
 ```bash
 # 数据库 URL
-export DATABASE_URL="sqlite:///./app.db"
+DATABASE_URL="sqlite:////data/app.db"
 
 # 会话密钥（生产环境必须修改）
-export SESSION_SECRET="your-secret-key-here"
+SESSION_SECRET="your-secret-key-here"
 
-# 默认管理员账户（仅首次启动时使用）
-export ADMIN_USERNAME="admin"
-export ADMIN_PASSWORD="admin"
+# 默认管理员账户（仅首次启动）
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="admin"
 
 # 调试模式
-export DEBUG="False"
+DEBUG="False"
 ```
 
 ## 使用流程
@@ -189,32 +147,13 @@ export DEBUG="False"
 2. 修改全局参数（利润率、材料成本、工人配置等）
 3. 保存设置后立即生效于后续报价计算
 
-## 数据模型
+## 数据模型（节选）
 
-### User（用户）
-- 用户名、密码（bcrypt 加密）
-- 管理员标识
-
-### AppSettings（应用设置）
-- 利润率、废品率
-- 材料密度、材料单价
-- 模具参数、产能参数
-- 调机费用、生产单元成本
-
-### WorkerProfile（工人配置）
-- 工人类型（skilled/standard）
-- 月薪、可操作机器数
-
-### QuotationHistory（报价历史）
-- 用户 ID
-- 请求参数快照
-- 计算结果快照
-- 单价、总价（冗余字段）
-
-### QuotationFavorite（报价收藏）
-- 用户 ID
-- 关联历史记录 ID
-- 自定义名称
+- User（用户）：用户名、密码（bcrypt）、是否管理员
+- AppSettings（应用设置）：利润/废品、材料、产能、费用等
+- WorkerProfile（工人配置）：月薪、可操作机器数
+- QuotationHistory（报价历史）：请求/结果快照、冗余字段
+- QuotationFavorite（报价收藏）：history 关联与备注/图片
 
 ## 注意事项
 
@@ -224,12 +163,11 @@ export DEBUG="False"
    - 设置强随机 `SESSION_SECRET`
    - 启用 HTTPS
    - 配置防火墙与访问控制
-3. **数据库备份**：定期备份 `app.db` 文件
-4. **性能优化**：SQLite 适合中小规模，高并发请迁移到 PostgreSQL/MySQL
+3. **数据库与上传位置**：
+   - SQLite 位于宿主 `data/sqlite`（容器内 `/data/app.db`）
+   - 上传目录位于宿主 `data/uploads`（容器内 `/app/app/static/uploads`）
 
 ## 🧪 开发与调试
-
-### 代码质量工具
 
 ```bash
 # 代码格式化
@@ -247,36 +185,5 @@ pytest tests/ -v
 # 测试覆盖率
 pytest tests/ --cov=app --cov-report=html
 ```
-
-### 开发模式
-
-```bash
-# 开发模式（自动重载）
-uvicorn app.main:app --reload
-
-# 查看交互式 API 文档
-# 访问 http://localhost:8000/docs
-
-# 查看日志
-# 日志会输出到控制台
-```
-
-### 环境配置
-
-```bash
-# 复制环境变量模板
-cp .env.example .env
-
-# 编辑环境变量
-nano .env
-```
-
-## 许可证
-
-MIT License
-
-## 联系方式
-
-如有问题或建议，请联系项目维护者。
 
 
