@@ -9,8 +9,8 @@ volumes:
 services:
   backend:
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile.backend
+      context: .
+      dockerfile: Dockerfile.backend
     image: quotation-backend:latest
     container_name: quotation-backend
     environment:
@@ -34,8 +34,8 @@ services:
 
   frontend:
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile.frontend
+      context: .
+      dockerfile: Dockerfile.frontend
     image: quotation-frontend:latest
     container_name: quotation-frontend
     depends_on:
