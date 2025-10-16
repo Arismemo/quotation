@@ -3,10 +3,9 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.db.models import User
-from app.deps import get_current_user
+from app.db.models import User  # 保留导入以兼容可能的类型引用
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ router = APIRouter(tags=["文件上传"])
 
 # 允许的图片格式
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB，与前端一致
 
 # 上传目录
 UPLOAD_DIR = Path("app/static/uploads")
@@ -22,9 +21,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/image")
-async def upload_image(
-    file: UploadFile = File(...), current_user: User = Depends(get_current_user)
-) -> dict[str, str]:
+async def upload_image(file: UploadFile = File(...)) -> dict[str, str]:
     """上传图片"""
 
     # 检查文件扩展名
@@ -58,7 +55,11 @@ async def upload_image(
 
         # 返回相对路径（用于数据库存储和前端访问）
         relative_path = f"/static/uploads/{unique_filename}"
-        logger.info(f"用户 {current_user.username} 上传图片: {relative_path}")
+        # 尽力记录，但上传允许匿名
+        try:
+            logger.info(f"上传图片: {relative_path}")
+        except Exception:
+            pass
 
         return {
             "path": relative_path,

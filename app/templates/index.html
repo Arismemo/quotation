@@ -1088,7 +1088,7 @@
         }catch(_){/* 忽略预览错误 */}
         
         // 隐藏占位符，显示上传状态
-        uploadPlaceholder.classList.add('hidden');
+        if (uploadPlaceholder) uploadPlaceholder.classList.add('hidden');
         uploadStatus.classList.remove('hidden');
         uploadSuccess.classList.add('hidden');
         uploadError.classList.add('hidden');
@@ -1122,7 +1122,7 @@
                 uploadErrorMessage.textContent = err.detail || '上传失败，请重试';
                 
                 // 重新显示占位符
-                uploadPlaceholder.classList.remove('hidden');
+                if (uploadPlaceholder) uploadPlaceholder.classList.remove('hidden');
                 
                 showToast(err.detail || '图片上传失败', 'error');
                 return;
@@ -1149,7 +1149,7 @@
             uploadErrorMessage.textContent = '上传失败，请重试';
             
             // 重新显示占位符
-            uploadPlaceholder.classList.remove('hidden');
+            if (uploadPlaceholder) uploadPlaceholder.classList.remove('hidden');
             
             showToast('图片上传失败', 'error');
         }
@@ -1160,7 +1160,7 @@
             showToast('请先上传图片', 'error');
             return;
         }
-        const method = localStorage.getItem('analysisMethod') || 'rembg';
+            const method = localStorage.getItem('analysisMethod') || 'opencv';
         try {
             analyzeBtn.disabled = true;
             analyzeText.textContent = '识别中...';
@@ -1205,43 +1205,46 @@
             updateProgress(90, '分析颜色信息...');
             completeStep(step4);
             
-            const [res1, res2] = await Promise.all([req1, req2]);
-            if (!res1.ok) {
-                const err = await res1.json();
-                showToast(err.detail || '占用比例识别失败', 'error');
+            // 优先保证面积比例成功，颜色统计失败也能给出提示并继续
+            const [res1, res2] = await Promise.allSettled([req1, req2]);
+            if (res1.status !== 'fulfilled' || !res1.value.ok) {
+                try { const err = res1.value ? await res1.value.json() : {}; showToast(err.detail || '占用比例识别失败', 'error'); } catch(_){}
+                analyzeBtn.disabled = false; analyzeText.textContent = '开始识别';
                 return;
             }
-            if (!res2.ok) {
-                const err = await res2.json();
-                showToast(err.detail || '颜色统计失败', 'error');
-                return;
+            let res2Ok = (res2.status === 'fulfilled' && res2.value.ok);
+            const areaJson = await res1.value.json();
+            let colorsJson = { color_count: 0, palette: [] };
+            if (res2Ok) {
+                try { colorsJson = await res2.value.json(); } catch(_) { res2Ok = false; }
             }
-            const data1 = await res1.json();
-            const data2 = await res2.json();
+            if (!res2Ok) {
+                showToast('颜色统计失败（已返回面积比例）', 'error');
+            }
 
             // 回填占用面积比例
-            const v = parseFloat(data1.area_ratio || 0).toFixed(2);
+            const v = parseFloat(areaJson.area_ratio || 0).toFixed(2);
             document.getElementById('areaRatio').value = v;
             document.getElementById('areaRatioNumber').value = v;
             document.getElementById('areaRatioValue').textContent = v;
             document.getElementById('analysisAreaRatio').textContent = v;
 
             // 回填颜色数量（按调色板大小）
-            const colorCount = parseInt(data2.color_count || 0);
+            const colorCount = parseInt(colorsJson.color_count || 0);
             document.querySelector('[name="color_count"]').value = colorCount;
             document.getElementById('analysisColorCount').textContent = String(colorCount);
 
             // 预览与算法标记
-            analysisPreview.src = data1.preview_path;
-            analysisAlgoTag.textContent = data1.method;
+            analysisPreview.src = areaJson.preview_path;
+            analysisAlgoTag.textContent = areaJson.method || method;
             analysisPreviewWrap.classList.remove('hidden');
             document.getElementById('analysisNumbers').classList.remove('hidden');
 
             // 渲染调色板
             const palWrap = document.getElementById('analysisPaletteWrap');
             const palDiv = document.getElementById('analysisPalette');
-            if (Array.isArray(data2.palette) && data2.palette.length > 0) {
-                palDiv.innerHTML = data2.palette.map(p => {
+            if (Array.isArray(colorsJson.palette) && colorsJson.palette.length > 0) {
+                palDiv.innerHTML = colorsJson.palette.map(p => {
                     const [r,g,b] = p.rgb || [0,0,0];
                     const ratioPct = Math.round((p.ratio || 0) * 1000) / 10; // 保留1位小数
                     const hex = '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');

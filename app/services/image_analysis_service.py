@@ -8,7 +8,6 @@ from typing import Literal, Optional
 import cv2
 import numpy as np
 from PIL import Image
-from rembg import remove
 
 STATIC_DIR = Path("app/static")
 UPLOADS_DIR = STATIC_DIR / "uploads"
@@ -99,6 +98,8 @@ def analyze_with_opencv(image_bgr: np.ndarray) -> tuple[float, np.ndarray]:
 
 
 def analyze_with_rembg(image_bytes: bytes) -> tuple[float, np.ndarray]:
+    # Lazy import to avoid loading onnxruntime unless explicitly needed
+    from rembg import remove
     # Remove background to RGBA bytes
     result_bytes = remove(image_bytes)
     rgba = Image.open(BytesIO(result_bytes)).convert("RGBA")
@@ -127,6 +128,21 @@ def save_preview(preview_bgr: np.ndarray) -> str:
     cv2.imwrite(str(out_path), _ensure_uint8(preview_bgr))
     # return relative static path
     return f"/static/uploads/analysis/{filename}"
+def get_mask_rgb_opencv(image_bgr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thr1 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, thr2 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # pick better by larger contour
+    c1 = _find_largest_contour(thr1)
+    c2 = _find_largest_contour(thr2)
+    def score(c):
+        return 0.0 if c is None else float(cv2.contourArea(c))
+    mask = thr1 if score(c1) >= score(c2) else thr2
+    mask = (mask > 0).astype(np.uint8)
+    rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    return mask, rgb
+
 
 
 def load_image_bgr_from_path(static_path: str) -> tuple[np.ndarray, bytes]:
@@ -148,10 +164,20 @@ def load_image_bgr_from_path(static_path: str) -> tuple[np.ndarray, bytes]:
 def analyze_area_ratio(
     static_path: str, method: Literal["opencv", "rembg"]
 ) -> tuple[float, str]:
-    # 使用新模块进行抠图与面积计算
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from area_ratio_calculator import AreaRatioCalculator  # type: ignore
-    from background_remover import BackgroundRemover  # type: ignore
+    # 使用脚本模块进行抠图与面积计算（兼容重构后的 scripts/ 目录）
+    repo_root = Path(__file__).resolve().parents[2]
+    scripts_dir = repo_root / "scripts"
+    sys.path.insert(0, str(repo_root))
+    sys.path.insert(0, str(scripts_dir))
+    try:
+        from area_ratio_calculator import AreaRatioCalculator  # type: ignore
+    except Exception:
+        # 允许备用导入路径
+        from scripts.area_ratio_calculator import AreaRatioCalculator  # type: ignore
+    try:
+        from background_remover import BackgroundRemover  # type: ignore
+    except Exception:
+        from scripts.background_remover import BackgroundRemover  # type: ignore
 
     image_bgr, image_bytes = load_image_bgr_from_path(static_path)
     remover = BackgroundRemover()
@@ -167,7 +193,7 @@ def analyze_area_ratio(
     return ratio, preview_path
 
 
-def analyze_colors(static_path: str) -> dict[str, object]:
+def analyze_colors(static_path: str, method: Literal["opencv", "rembg"] = "opencv") -> dict[str, object]:
     """统计主体颜色数量与调色板（改为使用 color_counter 模块）。"""
     # 解析文件绝对路径
     if not static_path.startswith("/static/"):
@@ -178,23 +204,36 @@ def analyze_colors(static_path: str) -> dict[str, object]:
         raise FileNotFoundError("图片不存在")
     logger.info("[colors] analyze start path=%s abs=%s", static_path, str(abs_path))
 
-    # 导入 color_counter 并调用
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    # 导入 color_counter 并调用（支持 scripts/ 目录）
+    repo_root = Path(__file__).resolve().parents[2]
+    scripts_dir = repo_root / "scripts"
+    sys.path.insert(0, str(repo_root))
+    sys.path.insert(0, str(scripts_dir))
     try:
         from color_counter import count_product_colors_from_mask_rgb  # type: ignore
     except Exception as e:  # pragma: no cover
-        logger.exception("[colors] failed to import color_counter: %s", e)
-        raise ImportError("无法导入 color_counter 模块") from e
+        try:
+            from scripts.color_counter import (  # type: ignore
+                count_product_colors_from_mask_rgb,
+            )
+        except Exception:
+            logger.exception("[colors] failed to import color_counter: %s", e)
+            raise ImportError("无法导入 color_counter 模块") from e
 
     # 复用我们已有抠图流程，避免重复IO
     image_bgr, image_bytes = load_image_bgr_from_path(static_path)
-    from background_remover import BackgroundRemover  # type: ignore
-
-    remover = BackgroundRemover()
-    # 默认用 rembg 抠图获得 mask 和 rgb（白底合成）
-    mask, rgb = remover.get_mask_and_rgb(
-        method="rembg", image_bgr=None, image_bytes=image_bytes
-    )
+    if method == "opencv":
+        mask, rgb = get_mask_rgb_opencv(image_bgr)
+    else:
+        # rembg 路径需要懒加载模块，避免不必要的 onnxruntime 依赖
+        try:
+            from background_remover import BackgroundRemover  # type: ignore
+        except Exception:
+            from scripts.background_remover import BackgroundRemover  # type: ignore
+        remover = BackgroundRemover()
+        mask, rgb = remover.get_mask_and_rgb(
+            method="rembg", image_bgr=None, image_bytes=image_bytes
+        )
     try:
         logger.info(
             "[colors] mask pixels=%d rgb_shape=%s",
