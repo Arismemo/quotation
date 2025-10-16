@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source
 COPY app ./app
 COPY quotation.py ./quotation.py
-COPY run.py ./run.py
+COPY scripts/run.py ./run.py
 
 # Create a non-root user and prepare data dir
 RUN mkdir -p /data
