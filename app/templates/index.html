@@ -241,6 +241,18 @@
                     </div>
                 </div>
 
+                <!-- 识别选项 -->
+                <div class="flex items-center gap-4 mb-3">
+                    <label class="flex items-center text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="enableAreaRatio" checked class="mr-2 h-4 w-4 text-blue-600 rounded">
+                        <span>占用面积比例计算</span>
+                    </label>
+                    <label class="flex items-center text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="enableColorCount" class="mr-2 h-4 w-4 text-blue-600 rounded">
+                        <span>颜色数量计算</span>
+                    </label>
+                </div>
+
                 <!-- 识别按钮 -->
                 <div class="flex items-center justify-center">
                     <button type="button" id="analyzeBtn" class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center shadow-md">
@@ -1174,7 +1186,18 @@
             showToast('请先上传图片', 'error');
             return;
         }
-            const method = localStorage.getItem('analysisMethod') || 'opencv';
+        
+        // 读取复选框状态
+        const enableAreaRatio = document.getElementById('enableAreaRatio').checked;
+        const enableColorCount = document.getElementById('enableColorCount').checked;
+        
+        // 检查是否至少勾选了一项
+        if (!enableAreaRatio && !enableColorCount) {
+            showToast('请至少勾选一项识别功能', 'error');
+            return;
+        }
+        
+        const method = localStorage.getItem('analysisMethod') || 'opencv';
         try {
             analyzeBtn.disabled = true;
             analyzeText.textContent = '识别中...';
@@ -1201,78 +1224,128 @@
             completeStep(step2);
             await new Promise(resolve => setTimeout(resolve, 300));
             
-            updateProgress(75, '计算面积比例...');
-            completeStep(step3);
+            // 条件构造请求
+            const requests = [];
+            let areaReq = null, colorReq = null;
             
-            // 并行请求占用比例与颜色统计
-            const req1 = fetch('/api/analyze/area-ratio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_path: analysisUploadedPath, method })
-            });
-            const req2 = fetch('/api/analyze/colors', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_path: analysisUploadedPath, method })
-            });
-            
-            updateProgress(90, '分析颜色信息...');
-            completeStep(step4);
-            
-            // 优先保证面积比例成功，颜色统计失败也能给出提示并继续
-            const [res1, res2] = await Promise.allSettled([req1, req2]);
-            if (res1.status !== 'fulfilled' || !res1.value.ok) {
-                try { const err = res1.value ? await res1.value.json() : {}; showToast(err.detail || '占用比例识别失败', 'error'); } catch(_){}
-                analyzeBtn.disabled = false; analyzeText.textContent = '开始识别';
-                return;
-            }
-            let res2Ok = (res2.status === 'fulfilled' && res2.value.ok);
-            const areaJson = await res1.value.json();
-            let colorsJson = { color_count: 0, palette: [] };
-            if (res2Ok) {
-                try { colorsJson = await res2.value.json(); } catch(_) { res2Ok = false; }
-            }
-            if (!res2Ok) {
-                showToast('颜色统计失败（已返回面积比例）', 'error');
-            }
-
-            // 回填占用面积比例
-            const v = parseFloat(areaJson.area_ratio || 0).toFixed(2);
-            document.getElementById('areaRatio').value = v;
-            document.getElementById('areaRatioNumber').value = v;
-            document.getElementById('areaRatioValue').textContent = v;
-            document.getElementById('analysisAreaRatio').textContent = v;
-
-            // 回填颜色数量（按调色板大小）
-            const colorCount = parseInt(colorsJson.color_count || 0);
-            document.querySelector('[name="color_count"]').value = colorCount;
-            document.getElementById('analysisColorCount').textContent = String(colorCount);
-
-            // 预览与算法标记
-            analysisPreview.src = areaJson.preview_path;
-            analysisAlgoTag.textContent = areaJson.method || method;
-            analysisPreviewWrap.classList.remove('hidden');
-            document.getElementById('analysisNumbers').classList.remove('hidden');
-
-            // 渲染调色板
-            const palWrap = document.getElementById('analysisPaletteWrap');
-            const palDiv = document.getElementById('analysisPalette');
-            if (Array.isArray(colorsJson.palette) && colorsJson.palette.length > 0) {
-                palDiv.innerHTML = colorsJson.palette.map(p => {
-                    const [r,g,b] = p.rgb || [0,0,0];
-                    const ratioPct = Math.round((p.ratio || 0) * 1000) / 10; // 保留1位小数
-                    const hex = '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
-                    return `
-                        <div class="border rounded p-1 text-[11px] text-gray-600">
-                            <div class="w-full h-8 rounded" style="background:${hex}"></div>
-                            <div class="mt-1">${hex}</div>
-                            <div>${ratioPct}%</div>
-                        </div>
-                    `;
-                }).join('');
-                palWrap.classList.remove('hidden');
+            if (enableAreaRatio) {
+                updateProgress(75, '计算面积比例...');
+                completeStep(step3);
+                areaReq = fetch('/api/analyze/area-ratio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                });
+                requests.push(areaReq);
             } else {
-                palWrap.classList.add('hidden');
+                // 跳过面积计算步骤
+                document.getElementById('step3').classList.add('opacity-50');
+            }
+            
+            if (enableColorCount) {
+                updateProgress(90, '分析颜色信息...');
+                completeStep(step4);
+                colorReq = fetch('/api/analyze/colors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                });
+                requests.push(colorReq);
+            } else {
+                // 跳过颜色分析步骤
+                document.getElementById('step4').classList.add('opacity-50');
+            }
+            
+            // 等待所有请求完成
+            const results = await Promise.allSettled(requests);
+            
+            // 处理面积比例结果
+            let areaJson = null;
+            if (enableAreaRatio && areaReq) {
+                const res1 = results[requests.indexOf(areaReq)];
+                if (res1.status === 'fulfilled' && res1.value.ok) {
+                    areaJson = await res1.value.json();
+                } else {
+                    try { 
+                        const err = res1.value ? await res1.value.json() : {}; 
+                        showToast(err.detail || '占用比例识别失败', 'error'); 
+                    } catch(_){}
+                    analyzeBtn.disabled = false; 
+                    analyzeText.textContent = '开始识别';
+                    return;
+                }
+            }
+            
+            // 处理颜色统计结果
+            let colorsJson = { color_count: 0, palette: [] };
+            if (enableColorCount && colorReq) {
+                const res2 = results[requests.indexOf(colorReq)];
+                if (res2.status === 'fulfilled' && res2.value.ok) {
+                    try { 
+                        colorsJson = await res2.value.json(); 
+                    } catch(_) { 
+                        showToast('颜色统计失败', 'error');
+                    }
+                } else {
+                    showToast('颜色统计失败', 'error');
+                }
+            }
+
+            // 条件回填占用面积比例
+            if (enableAreaRatio && areaJson) {
+                const v = parseFloat(areaJson.area_ratio || 0).toFixed(2);
+                document.getElementById('areaRatio').value = v;
+                document.getElementById('areaRatioNumber').value = v;
+                document.getElementById('areaRatioValue').textContent = v;
+                document.getElementById('analysisAreaRatio').textContent = v;
+                
+                // 预览与算法标记
+                analysisPreview.src = areaJson.preview_path;
+                analysisAlgoTag.textContent = areaJson.method || method;
+                analysisPreviewWrap.classList.remove('hidden');
+            }
+
+            // 条件回填颜色数量
+            if (enableColorCount && colorsJson) {
+                const colorCount = parseInt(colorsJson.color_count || 0);
+                document.querySelector('[name="color_count"]').value = colorCount;
+                document.getElementById('analysisColorCount').textContent = String(colorCount);
+            }
+            
+            // 条件显示结果区域
+            const analysisNumbers = document.getElementById('analysisNumbers');
+            if (enableAreaRatio || enableColorCount) {
+                analysisNumbers.classList.remove('hidden');
+                // 根据勾选状态显示对应字段
+                const areaRatioDiv = analysisNumbers.querySelector('div:first-child');
+                const colorCountDiv = analysisNumbers.querySelector('div:last-child');
+                if (areaRatioDiv) areaRatioDiv.style.display = enableAreaRatio ? 'block' : 'none';
+                if (colorCountDiv) colorCountDiv.style.display = enableColorCount ? 'block' : 'none';
+            }
+
+            // 条件渲染调色板
+            if (enableColorCount && colorsJson) {
+                const palWrap = document.getElementById('analysisPaletteWrap');
+                const palDiv = document.getElementById('analysisPalette');
+                if (Array.isArray(colorsJson.palette) && colorsJson.palette.length > 0) {
+                    palDiv.innerHTML = colorsJson.palette.map(p => {
+                        const [r,g,b] = p.rgb || [0,0,0];
+                        const ratioPct = Math.round((p.ratio || 0) * 1000) / 10; // 保留1位小数
+                        const hex = '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+                        return `
+                            <div class="border rounded p-1 text-[11px] text-gray-600">
+                                <div class="w-full h-8 rounded" style="background:${hex}"></div>
+                                <div class="mt-1">${hex}</div>
+                                <div>${ratioPct}%</div>
+                            </div>
+                        `;
+                    }).join('');
+                    palWrap.classList.remove('hidden');
+                } else {
+                    palWrap.classList.add('hidden');
+                }
+            } else {
+                document.getElementById('analysisPaletteWrap').classList.add('hidden');
             }
             updateProgress(100, '识别完成！');
             showToast('🎉 识别完成！已自动回填数据', 'success');
