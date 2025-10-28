@@ -36,7 +36,7 @@ async def analyze_area_ratio_api(
     )
     return {
         "area_ratio": round(float(ratio), 4),
-        "method": "rembg",
+        "method": method,
         "preview_path": preview_path,
     }
 
@@ -56,4 +56,3 @@ async def analyze_colors_api(
     result = analyze_colors(static_path=payload.image_path, method=method)
     return result
 
-    return result
