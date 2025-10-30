@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PVC卡通制品报价系统{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 前端工具库 -->
+    <script src="{{ url_for('static', path='js/utils.js') }}"></script>
     <style>
         .spinner {
             border: 3px solid #f3f3f3;
@@ -133,18 +135,12 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Toast 通知 -->
-    <div id="toast" class="fixed top-4 right-4 hidden">
-        <div class="bg-white border-l-4 border-blue-500 shadow-lg rounded-md p-4 max-w-sm">
-            <div class="flex">
-                <div class="flex-1">
-                    <p id="toastMessage" class="text-sm text-gray-700"></p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Toast 通知 (由utils.js自动创建，此处可移除) -->
 
     <script>
+        // 初始化工具库
+        const { Loading, Toast, Utils, Http, FormValidator } = window.AppUtils;
+        
         let currentUser = null;
 
         // 页面加载时获取当前用户
@@ -177,30 +173,34 @@
 
         // 退出登录
         async function logout() {
+            Loading.show('退出中...');
             try {
                 const response = await fetch('/api/auth/logout', { method: 'POST' });
                 if (response.ok) {
-                    window.location.href = '/login';
+                    Toast.success('退出成功');
+                    setTimeout(() => window.location.href = '/login', 500);
+                } else {
+                    Loading.hide();
+                    Toast.error('退出失败，请重试');
                 }
             } catch (error) {
+                Loading.hide();
                 console.error('退出登录失败:', error);
+                Toast.error('退出失败');
             }
         }
 
-        // 显示Toast通知
+        // 兼容旧代码的showToast函数（映射到新Toast）
         function showToast(message, type = 'info') {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            toastMessage.textContent = message;
-            
-            // 根据类型设置边框颜色
-            const border = type === 'error' ? 'border-red-500' : 'border-blue-500';
-            toast.querySelector('div').className = `bg-white border-l-4 ${border} shadow-lg rounded-md p-4 max-w-sm`;
-            
-            toast.classList.remove('hidden');
-            setTimeout(() => {
-                toast.classList.add('hidden');
-            }, 3000);
+            if (type === 'error') {
+                Toast.error(message);
+            } else if (type === 'success') {
+                Toast.success(message);
+            } else if (type === 'warning') {
+                Toast.warning(message);
+            } else {
+                Toast.info(message);
+            }
         }
 
         // 页面加载时执行
