@@ -54,12 +54,17 @@ async def upload_image(file: UploadFile = File(...)) -> dict[str, str]:
     # 验证图片内容是否有效
     try:
         with Image.open(io.BytesIO(content)) as img:
-            # 验证图片可以正常打开和读取
-            img.verify()
-    except Exception:
+            # 验证图片可以正常打开和读取（不使用 verify()，因为它会破坏图片对象）
+            # 通过尝试读取格式和尺寸来验证图片有效性
+            img.format  # 读取格式
+            img.size  # 读取尺寸
+            # 尝试加载图片（对于某些格式，需要显式加载）
+            img.load()
+    except Exception as e:
+        logger.error(f"图片验证失败: {e}")
         raise HTTPException(
             status_code=400,
-            detail="文件不是有效的图片格式",
+            detail=f"文件不是有效的图片格式: {str(e)}",
         )
 
     # 生成唯一文件名
@@ -73,18 +78,26 @@ async def upload_image(file: UploadFile = File(...)) -> dict[str, str]:
 
         # 返回相对路径（用于数据库存储和前端访问）
         relative_path = f"/static/uploads/{unique_filename}"
-        # 尽力记录，但上传允许匿名
-        try:
-            logger.info(f"上传图片: {relative_path}")
-        except Exception:
-            pass
-
+        logger.info(f"上传图片成功: {relative_path} (大小: {len(content)} bytes)")
+        
         return {
             "path": relative_path,
             "filename": unique_filename,
             "size": str(len(content)),
         }
 
+    except PermissionError as e:
+        logger.error(f"保存图片失败（权限不足）: {e}, 路径: {file_path}")
+        raise HTTPException(
+            status_code=500, 
+            detail="保存图片失败：权限不足，请检查目录权限"
+        ) from e
+    except OSError as e:
+        logger.error(f"保存图片失败（IO错误）: {e}, 路径: {file_path}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"保存图片失败：{str(e)}"
+        ) from e
     except Exception as e:
-        logger.error(f"保存图片失败: {e}")
-        raise HTTPException(status_code=500, detail="保存图片失败") from e
+        logger.error(f"保存图片失败（未知错误）: {e}, 路径: {file_path}", exc_info=True)
+        raise HTTPException(status_code=500, detail="保存图片失败，请重试") from e
