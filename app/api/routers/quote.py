@@ -27,7 +27,7 @@ router = APIRouter(tags=["报价"])
 async def calculate_quote(
     quote_req: QuoteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> dict[str, object]:
     """计算报价"""
 
