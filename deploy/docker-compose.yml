@@ -9,6 +9,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.backend
     image: quotation-backend:latest
+    restart: unless-stopped
     container_name: quotation-backend
     environment:
       - DATABASE_URL=sqlite:////data/app.db
@@ -34,6 +35,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
     image: quotation-frontend:latest
+    restart: unless-stopped
     container_name: quotation-frontend
     depends_on:
       backend:
