@@ -22,3 +22,5 @@ test_image.png
 
 data/
 !data/.gitkeep
+
+__pycache__
