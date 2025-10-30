@@ -651,9 +651,9 @@
         }).join('');
     }
     
-    // 筛选收藏（使用优化的防抖搜索）
+    // 筛选收藏
     function filterFavorites() {
-        const searchTerm = document.getElementById('favoriteSearchInput').value.toLowerCase().trim();
+        const searchTerm = document.getElementById('favoriteSearchInput')?.value.toLowerCase().trim() || '';
         
         if (!searchTerm) {
             renderFavorites(allFavorites);
@@ -668,16 +668,23 @@
         renderFavorites(filtered);
     }
     
-    // 使用防抖优化搜索输入
-    if (Optimized.debouncedFavoriteSearch) {
+    // 在DOMContentLoaded后应用防抖搜索
+    document.addEventListener('DOMContentLoaded', function applyDebouncedSearch() {
+        const Optimized = window.OptimizedFunctions || {};
         const searchInput = document.getElementById('favoriteSearchInput');
-        if (searchInput) {
+        
+        if (searchInput && Optimized.debouncedFavoriteSearch) {
+            // 移除内联事件处理器属性
             searchInput.removeAttribute('oninput');
-            searchInput.addEventListener('input', () => {
-                Optimized.debouncedFavoriteSearch(searchInput.value);
+            
+            // 添加防抖事件监听器，调用filterFavorites而不是直接操作DOM
+            searchInput.addEventListener('input', function() {
+                filterFavorites(); // 使用现有的filterFavorites函数
             });
+            
+            console.log('✓ 防抖搜索已应用到收藏搜索框');
         }
-    }
+    });
     
     // 填充表单（从历史记录）
     async function fillFormFromHistory(historyId) {

@@ -3,8 +3,40 @@
  * 使用新工具库优化原有功能
  */
 
-// 确保工具库已加载
-const { Loading, Toast, Utils, Http, FormValidator } = window.AppUtils || {};
+(function() {
+    'use strict';
+    
+    // 等待工具库加载
+    function getAppUtils() {
+        if (!window.AppUtils) {
+            console.warn('AppUtils not loaded yet, functions may not work');
+            return {
+                Loading: { show: () => {}, hide: () => {} },
+                Toast: { error: () => {}, success: () => {}, info: () => {}, warning: () => {} },
+                Utils: { 
+                    validateImageFile: () => ({ valid: true }), 
+                    compressImage: (file) => Promise.resolve(file),
+                    formatFileSize: (size) => `${size} bytes`,
+                    debounce: (fn) => fn
+                },
+                Http: { 
+                    request: (...args) => fetch(...args).then(r => r.json()),
+                    post: (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+                    get: (url) => fetch(url).then(r => r.json()),
+                    delete: (url) => fetch(url, { method: 'DELETE' }).then(r => r.json()),
+                    clearCache: () => {}
+                },
+                FormValidator: { 
+                    attachRealTimeValidation: () => {},
+                    validateNumber: () => ({ valid: true })
+                }
+            };
+        }
+        return window.AppUtils;
+    }
+    
+    const AppUtils = getAppUtils();
+    const { Loading, Toast, Utils, Http, FormValidator } = AppUtils;
 
 // ==================== 优化后的图片上传函数 ====================
 
@@ -227,6 +259,11 @@ async function batchDeleteHistoryOptimized(historyIds) {
  * 初始化表单实时验证
  */
 function initFormValidation() {
+    if (!FormValidator || !FormValidator.attachRealTimeValidation) {
+        console.warn('FormValidator not available');
+        return;
+    }
+    
     // 验证数字输入
     const numberInputs = document.querySelectorAll('input[type="number"]');
     numberInputs.forEach(input => {
@@ -253,15 +290,32 @@ function createDebouncedSearch(searchFunction, delay = 300) {
 /**
  * 防抖的收藏搜索
  */
-const debouncedFavoriteSearch = Utils.debounce((keyword) => {
-    const favorites = document.querySelectorAll('#favoriteList > div');
-    const lowerKeyword = keyword.toLowerCase();
+function debouncedFavoriteSearch(keyword) {
+    if (!Utils || !Utils.debounce) {
+        // 降级到直接执行
+        const favorites = document.querySelectorAll('#favoriteList > div');
+        const lowerKeyword = keyword.toLowerCase();
+        favorites.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(lowerKeyword) ? '' : 'none';
+        });
+        return;
+    }
     
-    favorites.forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = text.includes(lowerKeyword) ? '' : 'none';
-    });
-}, 300);
+    // 使用防抖版本（首次调用时创建）
+    if (!debouncedFavoriteSearch._debouncedFn) {
+        debouncedFavoriteSearch._debouncedFn = Utils.debounce((keyword) => {
+            const favorites = document.querySelectorAll('#favoriteList > div');
+            const lowerKeyword = keyword.toLowerCase();
+            favorites.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(lowerKeyword) ? '' : 'none';
+            });
+        }, 300);
+    }
+    
+    debouncedFavoriteSearch._debouncedFn(keyword);
+}
 
 // ==================== 图像分析优化 ====================
 
@@ -313,21 +367,32 @@ async function analyzeImageOptimized(imagePath, enableAreaRatio = true, enableCo
 
 // ==================== 导出优化函数 ====================
 
-// 导出到全局，供index.html使用
-window.OptimizedFunctions = {
-    uploadImageWithCompression,
-    calculateQuoteOptimized,
-    loadHistoryOptimized,
-    loadFavoritesOptimized,
-    toggleFavoriteOptimized,
-    removeFavoriteOptimized,
-    saveFavoriteNoteOptimized,
-    batchDeleteHistoryOptimized,
-    initFormValidation,
-    createDebouncedSearch,
-    debouncedFavoriteSearch,
-    analyzeImageOptimized
-};
+    // 导出到全局，供index.html使用
+    window.OptimizedFunctions = {
+        uploadImageWithCompression,
+        calculateQuoteOptimized,
+        loadHistoryOptimized,
+        loadFavoritesOptimized,
+        toggleFavoriteOptimized,
+        removeFavoriteOptimized,
+        saveFavoriteNoteOptimized,
+        batchDeleteHistoryOptimized,
+        initFormValidation,
+        createDebouncedSearch,
+        debouncedFavoriteSearch,
+        analyzeImageOptimized
+    };
 
-console.log('✓ 优化函数已加载');
+    console.log('✓ 优化函数已加载');
+    
+    // 如果已经DOMContentLoaded，立即初始化表单验证
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(() => {
+            if (typeof initFormValidation === 'function') {
+                initFormValidation();
+            }
+        }, 100);
+    }
+    
+})(); // 立即执行函数结束
 
