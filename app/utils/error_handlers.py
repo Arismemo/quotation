@@ -88,6 +88,17 @@ async def validation_exception_handler(
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle HTTP exceptions."""
     logger.warning(f"HTTP exception on {request.url}: {exc.detail}")
+    
+    # 特别处理 413 错误（请求体过大）
+    if exc.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE:
+        from app.config import settings
+        max_size_mb = settings.MAX_UPLOAD_SIZE // (1024 * 1024)
+        return create_error_response(
+            message=f"文件大小超过限制。最大允许: {max_size_mb}MB",
+            status_code=exc.status_code,
+            error_code="FILE_TOO_LARGE",
+            details={"max_size_mb": max_size_mb},
+        )
 
     return create_error_response(
         message=exc.detail, status_code=exc.status_code, error_code="HTTP_ERROR"
