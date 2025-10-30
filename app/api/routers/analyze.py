@@ -71,6 +71,15 @@ async def analyze_area_ratio_api(
         )
     except Exception as e:
         logger.exception(f"面积比例分析失败: {e}")
+        
+        # 检查是否是 rembg 模型下载失败
+        error_str = str(e).lower()
+        if "rembg" in error_str or "github.com" in error_str or "download" in error_str or "timeout" in error_str:
+            raise HTTPException(
+                status_code=503,
+                detail="rembg 模型下载失败（网络问题）。请检查服务器网络连接，或使用 opencv 方法（更快且不需要网络）。",
+            ) from e
+        
         raise
 
 

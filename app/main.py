@@ -58,6 +58,22 @@ async def lifespan(app: FastAPI):
         logger.info(f"数据库文件不存在，将创建并初始化: {db_file}")
 
     init_db()
+    
+    # 可选：预加载 rembg 模型（如果可用）
+    # 这可以避免首次使用时因下载模型导致的延迟
+    try:
+        import os
+        if os.getenv("PRELOAD_REMBG_MODEL", "false").lower() == "true":
+            logger.info("正在预加载 rembg 模型...")
+            try:
+                from rembg import new_session
+                session = new_session("u2net")
+                logger.info("✓ rembg 模型预加载成功")
+            except Exception as e:
+                logger.warning(f"rembg 模型预加载失败（不影响使用）: {e}")
+    except ImportError:
+        pass  # rembg 未安装，跳过
+    
     logger.info("应用启动完成")
 
     yield

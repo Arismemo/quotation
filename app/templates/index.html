@@ -1301,14 +1301,39 @@
             // 条件构造请求
             const requests = [];
             let areaReq = null, colorReq = null;
+            let areaJson = null;  // 提前声明，供进度更新定时器使用
+            let colorsJson = { color_count: 0, palette: [] };  // 提前声明，供进度更新定时器使用
+            
+            // 创建超时包装函数
+            function createTimeoutPromise(timeoutMs, taskName) {
+                return new Promise((_, reject) => {
+                    setTimeout(() => {
+                        reject(new Error(`${taskName}超时（${timeoutMs/1000}秒）。请检查网络连接或稍后重试。如果使用 rembg 方法，首次运行可能需要下载模型，请耐心等待。`));
+                    }, timeoutMs);
+                });
+            }
+            
+            // 声明进度更新定时器变量（在 try 块外）
+            let progressInterval = null;
             
             if (enableAreaRatio) {
-                updateProgress(75, '计算面积比例...');
+                updateProgress(75, '计算面积比例...（可能需要较长时间）');
                 completeStep(step3);
-                areaReq = fetch('/api/analyze/area-ratio', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                
+                // 设置超时：rembg 方法 5 分钟，opencv 方法 2 分钟
+                const timeoutMs = method === 'rembg' ? 300000 : 120000;
+                
+                areaReq = Promise.race([
+                    fetch('/api/analyze/area-ratio', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                    }),
+                    createTimeoutPromise(timeoutMs, '面积比例计算')
+                ]).catch(err => {
+                    // 处理超时或网络错误
+                    updateProgress(75, '面积比例计算失败');
+                    throw err;
                 });
                 requests.push(areaReq);
             } else {
@@ -1317,12 +1342,23 @@
             }
             
             if (enableColorCount) {
-                updateProgress(90, '分析颜色信息...');
+                updateProgress(90, '分析颜色信息...（可能需要较长时间）');
                 completeStep(step4);
-                colorReq = fetch('/api/analyze/colors', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                
+                // 设置超时：rembg 方法 5 分钟，opencv 方法 2 分钟
+                const timeoutMs = method === 'rembg' ? 300000 : 120000;
+                
+                colorReq = Promise.race([
+                    fetch('/api/analyze/colors', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                    }),
+                    createTimeoutPromise(timeoutMs, '颜色分析')
+                ]).catch(err => {
+                    // 处理超时或网络错误
+                    updateProgress(90, '颜色分析失败');
+                    throw err;
                 });
                 requests.push(colorReq);
             } else {
@@ -1330,38 +1366,86 @@
                 document.getElementById('step4').classList.add('opacity-50');
             }
             
+            // 添加进度更新定时器，让用户知道还在处理中
+            let progressDotCount = 0;
+            progressInterval = setInterval(() => {
+                progressDotCount++;
+                const dots = '.'.repeat(Math.min(progressDotCount % 4, 3));
+                if (enableAreaRatio && !areaJson) {
+                    const hint = method === 'rembg' ? '（首次使用 rembg 可能需要下载模型，请耐心等待）' : '（请耐心等待）';
+                    updateProgress(75, `计算面积比例${dots}${hint}`);
+                }
+                if (enableColorCount && !colorsJson) {
+                    const hint = method === 'rembg' ? '（首次使用 rembg 可能需要下载模型，请耐心等待）' : '（请耐心等待）';
+                    updateProgress(90, `分析颜色信息${dots}${hint}`);
+                }
+            }, 1000);
+            
             // 等待所有请求完成
             const results = await Promise.allSettled(requests);
             
+            // 清除进度更新定时器
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
             // 处理面积比例结果
-            let areaJson = null;
             if (enableAreaRatio && areaReq) {
                 const res1 = results[requests.indexOf(areaReq)];
                 if (res1.status === 'fulfilled' && res1.value.ok) {
                     areaJson = await res1.value.json();
+                    updateProgress(75, '面积比例计算完成 ✓');
                 } else {
+                    let errorMsg = '占用比例识别失败';
                     try { 
-                        const err = res1.value ? await res1.value.json() : {}; 
-                        showToast(err.detail || '占用比例识别失败', 'error'); 
-                    } catch(_){}
+                        if (res1.value) {
+                            const err = await res1.value.json();
+                            errorMsg = err.detail || errorMsg;
+                        } else if (res1.reason) {
+                            errorMsg = res1.reason.message || res1.reason.toString();
+                        }
+                    } catch(e) {
+                        if (res1.reason) {
+                            errorMsg = res1.reason.message || res1.reason.toString();
+                        }
+                    }
+                    updateProgress(75, `面积比例计算失败: ${errorMsg}`);
+                    showToast(errorMsg, 'error');
                     analyzeBtn.disabled = false; 
                     analyzeText.textContent = '开始识别';
+                    analyzeIcon.innerHTML = '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>';
                     return;
                 }
             }
             
             // 处理颜色统计结果
-            let colorsJson = { color_count: 0, palette: [] };
             if (enableColorCount && colorReq) {
                 const res2 = results[requests.indexOf(colorReq)];
                 if (res2.status === 'fulfilled' && res2.value.ok) {
                     try { 
-                        colorsJson = await res2.value.json(); 
-                    } catch(_) { 
+                        colorsJson = await res2.value.json();
+                        updateProgress(90, '颜色分析完成 ✓');
+                    } catch(e) { 
+                        updateProgress(90, '颜色统计失败: 响应解析错误');
                         showToast('颜色统计失败', 'error');
                     }
                 } else {
-                    showToast('颜色统计失败', 'error');
+                    let errorMsg = '颜色统计失败';
+                    try {
+                        if (res2.value) {
+                            const err = await res2.value.json();
+                            errorMsg = err.detail || errorMsg;
+                        } else if (res2.reason) {
+                            errorMsg = res2.reason.message || res2.reason.toString();
+                        }
+                    } catch(e) {
+                        if (res2.reason) {
+                            errorMsg = res2.reason.message || res2.reason.toString();
+                        }
+                    }
+                    updateProgress(90, `颜色分析失败: ${errorMsg}`);
+                    showToast(errorMsg, 'error');
                 }
             }
 
@@ -1432,20 +1516,45 @@
             // 触发自动计算（若开启）
             triggerAutoCalc();
         } catch (err) {
-            console.error(err);
+            console.error('分析失败:', err);
+            
+            // 清除进度更新定时器
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
             updateProgress(0, '识别失败');
-            showToast('识别失败，请重试', 'error');
+            
+            let errorMsg = '识别失败，请重试';
+            if (err.message) {
+                errorMsg = err.message;
+            } else if (err.toString) {
+                errorMsg = err.toString();
+            }
+            
+            showToast(errorMsg, 'error');
+            
+            // 提示用户使用更快的 opencv 方法
+            if (method === 'rembg' && (errorMsg.includes('超时') || errorMsg.includes('timeout'))) {
+                setTimeout(() => {
+                    showToast('💡 提示：使用 opencv 方法会更快，可在设置中切换', 'info');
+                }, 2000);
+            }
             
             // 延迟隐藏进度容器
             setTimeout(() => {
                 progressContainer.classList.add('hidden');
-            }, 2000);
+            }, 3000);
         } finally {
+            // 确保清除定时器
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            
             analyzeBtn.disabled = false;
             analyzeText.textContent = '开始识别';
-            analyzeIcon.innerHTML = `
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            `;
+            analyzeIcon.innerHTML = '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>';
         }
     });
     

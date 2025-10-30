@@ -1,10 +1,41 @@
 from io import BytesIO
 from typing import Literal, Optional
+import logging
 
 import cv2
 import numpy as np
 from PIL import Image
-from rembg import remove
+
+logger = logging.getLogger(__name__)
+
+# 延迟导入 rembg，避免在不需要时加载
+_rembg_remove = None
+
+def _get_rembg_remove():
+    """延迟加载 rembg，并在首次使用时预加载模型"""
+    global _rembg_remove
+    if _rembg_remove is None:
+        try:
+            from rembg import remove as _remove
+            from rembg import new_session
+            import os
+            
+            # 设置环境变量增加超时时间（如果支持）
+            os.environ.setdefault('REQUESTS_TIMEOUT', '300')
+            
+            # 尝试预加载模型（如果失败会抛出异常）
+            logger.info("正在加载 rembg 模型（首次使用可能需要下载，请耐心等待）...")
+            try:
+                # 预创建 session 以便提前下载模型
+                session = new_session("u2net")
+                logger.info("rembg 模型加载成功")
+            except Exception as e:
+                logger.warning(f"rembg 模型预加载失败: {e}，将在使用时重试")
+            
+            _rembg_remove = _remove
+        except ImportError:
+            raise ImportError("rembg 模块未安装，请安装: pip install rembg")
+    return _rembg_remove
 
 
 class BackgroundRemover:
@@ -24,7 +55,26 @@ class BackgroundRemover:
         return mask
 
     def rembg_mask_and_rgb(self, image_bytes: bytes) -> tuple[np.ndarray, np.ndarray]:
-        result_bytes = remove(image_bytes)
+        """使用 rembg 进行背景移除"""
+        try:
+            remove_func = _get_rembg_remove()
+            logger.info("调用 rembg.remove() 处理图片...")
+            result_bytes = remove_func(image_bytes)
+            logger.info("rembg 处理完成")
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"rembg 处理失败: {error_msg}")
+            
+            # 检查是否是网络相关错误
+            if "timeout" in error_msg.lower() or "connection" in error_msg.lower() or "github.com" in error_msg.lower():
+                raise RuntimeError(
+                    "rembg 模型下载失败（网络超时）。"
+                    "解决方案：1) 确保服务器可以访问 GitHub；"
+                    "2) 或在构建时预下载模型；"
+                    "3) 或使用 opencv 方法替代。"
+                ) from e
+            raise
+        
         rgba = Image.open(BytesIO(result_bytes)).convert("RGBA")
         rgba_np = np.array(rgba)
         alpha = rgba_np[..., 3]

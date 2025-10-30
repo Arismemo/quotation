@@ -35,6 +35,11 @@ COPY scripts ./scripts
 
 RUN mkdir -p /data
 
+# 预下载 rembg 模型（避免首次使用时网络超时）
+# 如果网络不可用，这一步会失败但不影响构建
+# 可以在运行时通过环境变量控制是否预加载
+RUN python scripts/preload_rembg_model.py || echo "警告: rembg 模型预下载失败，将在首次使用时下载"
+
 EXPOSE 8000
 ENV DATABASE_URL="sqlite:////data/app.db" \
     DEBUG=False
