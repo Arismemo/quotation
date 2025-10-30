@@ -25,7 +25,13 @@ def cache_result(ttl_seconds: int = 300) -> Callable[[F], F]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             # 生成缓存键
-            cache_key = f"{func.__name__}:{hash(str(args) + str(kwargs))}"
+            # 注意：直接哈希 args/kwargs 可能导致包含不可哈希/不可序列化对象（如 DB Session）
+            # 这里仅使用与业务相关的可序列化参数构建 key，避免内存泄漏与缓存穿透
+            try:
+                key_repr = str(tuple(repr(a) for a in args if not hasattr(a, "commit"))) + str({k: repr(v) for k, v in kwargs.items() if not hasattr(v, "commit")})
+            except Exception:
+                key_repr = "generic"
+            cache_key = f"{func.__name__}:{hash(key_repr)}"
 
             # 检查缓存是否有效
             if cache_key in _cache:
