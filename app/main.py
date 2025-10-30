@@ -62,7 +62,6 @@ async def lifespan(app: FastAPI):
     # 可选：预加载 rembg 模型（如果可用）
     # 这可以避免首次使用时因下载模型导致的延迟
     try:
-        import os
         if os.getenv("PRELOAD_REMBG_MODEL", "false").lower() == "true":
             logger.info("正在预加载 rembg 模型...")
             try:
