@@ -1,0 +1,59 @@
+# /etc/nginx/sites-available/quotation
+# 系统级 Nginx 反向代理配置示例
+# 
+# 使用方法：
+# 1. 复制此文件到 /etc/nginx/sites-available/quotation
+# 2. 根据实际情况修改 server_name 和 proxy_pass 地址
+# 3. 创建符号链接: sudo ln -s /etc/nginx/sites-available/quotation /etc/nginx/sites-enabled/quotation
+# 4. 测试配置: sudo nginx -t
+# 5. 重新加载 Nginx: sudo systemctl reload nginx
+
+server {
+    listen 80;
+    # 如果使用 HTTPS，取消下面的注释并配置 SSL
+    # listen 443 ssl http2;
+    # ssl_certificate /path/to/cert.pem;
+    # ssl_certificate_key /path/to/key.pem;
+
+    # 修改为您的域名或 IP
+    server_name quotation.example.com;
+
+    # ⚠️ 重要：设置客户端请求体最大大小为 10MB（支持图片上传）
+    client_max_body_size 10m;
+
+    # 访问日志
+    access_log /var/log/nginx/quotation_access.log;
+    error_log /var/log/nginx/quotation_error.log;
+
+    location / {
+        # 根据实际情况修改代理地址
+        # 如果容器映射到本地端口，使用 http://localhost:10001
+        # 如果使用 Docker 网络，使用容器名称和端口
+        proxy_pass http://localhost:10001;
+        
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        
+        # ⚠️ 重要：增加超时时间以支持大文件上传
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        
+        # 缓冲设置（可选，有助于大文件上传）
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    # 可选：直接提供静态文件（如果上传目录挂载到主机）
+    # location /static/uploads/ {
+    #     alias /path/to/quotation/data/uploads/;
+    #     expires 30d;
+    #     add_header Cache-Control "public, immutable";
+    # }
+}
+

@@ -9,7 +9,9 @@ import cv2
 import numpy as np
 from PIL import Image
 
-STATIC_DIR = Path("app/static")
+# 使用绝对路径避免工作目录问题
+_BASE_DIR = Path(__file__).resolve().parents[2]
+STATIC_DIR = _BASE_DIR / "app" / "static"
 UPLOADS_DIR = STATIC_DIR / "uploads"
 ANALYSIS_DIR = UPLOADS_DIR / "analysis"
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
@@ -168,6 +170,9 @@ def load_image_bgr_from_path(static_path: str) -> tuple[np.ndarray, bytes]:
 def analyze_area_ratio(
     static_path: str, method: Literal["opencv", "rembg"]
 ) -> tuple[float, str]:
+    """计算面积比例（同步函数，应在线程池中调用）"""
+    logger.info(f"[area_ratio] 开始分析: path={static_path}, method={method}")
+    
     # 使用脚本模块进行抠图与面积计算（兼容重构后的 scripts/ 目录）
     repo_root = Path(__file__).resolve().parents[2]
     scripts_dir = repo_root / "scripts"
@@ -183,17 +188,34 @@ def analyze_area_ratio(
     except Exception:
         from scripts.background_remover import BackgroundRemover  # type: ignore
 
+    logger.info(f"[area_ratio] 加载图片: {static_path}")
     image_bgr, image_bytes = load_image_bgr_from_path(static_path)
+    logger.info(f"[area_ratio] 图片尺寸: {image_bgr.shape}")
+    
+    logger.info(f"[area_ratio] 开始抠图，方法: {method}")
     remover = BackgroundRemover()
+    
+    # rembg 可能需要较长时间，特别是首次加载模型
+    if method == "rembg":
+        logger.info("[area_ratio] 使用 rembg 方法（可能需要较长时间加载模型）")
+    
     mask, rgb = remover.get_mask_and_rgb(
         method=method,
         image_bgr=image_bgr if method == "opencv" else None,
         image_bytes=image_bytes if method == "rembg" else None,
     )
+    logger.info(f"[area_ratio] 抠图完成，前景像素数: {(mask > 0).sum()}")
+    
     # 预览需要BGR底图
     base_bgr = image_bgr if method == "opencv" else cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    
+    logger.info("[area_ratio] 计算面积比例")
     ratio, preview = AreaRatioCalculator().compute(mask=mask, base_bgr=base_bgr)
+    
+    logger.info(f"[area_ratio] 面积比例: {ratio:.4f}")
     preview_path = save_preview(preview)
+    logger.info(f"[area_ratio] 预览已保存: {preview_path}")
+    
     return ratio, preview_path
 
 
