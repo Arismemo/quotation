@@ -4,9 +4,9 @@ import sys
 from sqlalchemy.orm import Session
 
 # 导入原始计算器（从项目根目录）
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 from quotation import QuotationCalculator
 from app.services.cache_service import get_cached_settings, get_cached_worker_profiles
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import crud
 from app.db.models import User
 from app.db.session import get_db
-from app.deps import get_current_user_optional
+from app.deps import get_current_user, get_current_user_optional
 from app.schemas.quote import QuoteRequest
 from app.services.calculator_service import compute_quote
 from app.utils.exceptions import handle_common_exceptions
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["报价"])
 
 
-@router.post("")
+@router.post("/calculate")
 @handle_common_exceptions(
     file_not_found_msg="图片文件未找到",
     value_error_msg="报价计算参数错误",
@@ -26,7 +26,7 @@ router = APIRouter(tags=["报价"])
 async def calculate_quote(
     quote_req: QuoteRequest,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
 ) -> dict[str, object]:
     """计算报价"""
 
