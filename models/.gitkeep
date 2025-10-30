@@ -1,0 +1,6 @@
+# rembg 模型文件目录
+# 注意：u2net.onnx 文件较大（约176MB），但可以提交到仓库以方便部署
+models/
+!models/.gitkeep
+!models/u2net.onnx
+

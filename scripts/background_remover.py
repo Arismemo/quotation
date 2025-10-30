@@ -1,6 +1,8 @@
 from io import BytesIO
 from typing import Literal, Optional
 import logging
+from pathlib import Path
+import os
 
 import cv2
 import numpy as np
@@ -10,24 +12,44 @@ logger = logging.getLogger(__name__)
 
 # 延迟导入 rembg，避免在不需要时加载
 _rembg_remove = None
+_rembg_session = None
+
+def _get_repo_model_path():
+    """获取仓库中的模型路径"""
+    # 从当前文件位置向上两级到项目根目录
+    repo_root = Path(__file__).resolve().parents[1]
+    models_dir = repo_root / "models"
+    model_file = models_dir / "u2net.onnx"
+    return model_file if model_file.exists() else None
 
 def _get_rembg_remove():
-    """延迟加载 rembg，并在首次使用时预加载模型"""
-    global _rembg_remove
+    """延迟加载 rembg，优先使用本地模型文件"""
+    global _rembg_remove, _rembg_session
+    
     if _rembg_remove is None:
         try:
             from rembg import remove as _remove
             from rembg import new_session
             import os
             
+            # 优先使用仓库中的模型文件
+            repo_model_path = _get_repo_model_path()
+            if repo_model_path:
+                logger.info(f"使用仓库中的模型文件: {repo_model_path}")
+                # 设置 U2NET_HOME 环境变量指向 models 目录
+                models_dir = repo_model_path.parent
+                os.environ['U2NET_HOME'] = str(models_dir)
+            else:
+                logger.info("仓库中未找到模型文件，将使用默认路径（可能需要下载）")
+            
             # 设置环境变量增加超时时间（如果支持）
             os.environ.setdefault('REQUESTS_TIMEOUT', '300')
             
             # 尝试预加载模型（如果失败会抛出异常）
-            logger.info("正在加载 rembg 模型（首次使用可能需要下载，请耐心等待）...")
+            logger.info("正在加载 rembg 模型...")
             try:
-                # 预创建 session 以便提前下载模型
-                session = new_session("u2net")
+                # 预创建 session 以便提前下载模型（如果本地没有）
+                _rembg_session = new_session("u2net")
                 logger.info("rembg 模型加载成功")
             except Exception as e:
                 logger.warning(f"rembg 模型预加载失败: {e}，将在使用时重试")

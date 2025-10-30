@@ -33,12 +33,19 @@ COPY app ./app
 COPY quotation.py ./quotation.py
 COPY scripts ./scripts
 
+# 复制模型文件（如果存在）
+COPY models ./models
+
 RUN mkdir -p /data
 
-# 预下载 rembg 模型（避免首次使用时网络超时）
-# 如果网络不可用，这一步会失败但不影响构建
-# 可以在运行时通过环境变量控制是否预加载
-RUN python scripts/preload_rembg_model.py || echo "警告: rembg 模型预下载失败，将在首次使用时下载"
+# 检查模型文件并提示
+RUN if [ -f models/u2net.onnx ]; then \
+        echo "✓ 检测到仓库中的模型文件，将在运行时使用"; \
+        ls -lh models/u2net.onnx; \
+    else \
+        echo "仓库中未找到模型文件，尝试预下载..."; \
+        python scripts/preload_rembg_model.py || echo "警告: rembg 模型预下载失败，将在首次使用时下载"; \
+    fi
 
 EXPOSE 8000
 ENV DATABASE_URL="sqlite:////data/app.db" \

@@ -25,3 +25,7 @@ data/
 
 __pycache__
 *.pyc
+
+# rembg 模型文件（可选：如果不想提交大文件，取消下面的注释）
+# models/*.onnx
+# !models/.gitkeep
