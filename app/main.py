@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -98,6 +99,9 @@ app.add_middleware(
     same_site="lax",
     https_only=False,  # 开发环境设为 False，生产环境建议 True
 )
+
+# 添加Gzip压缩中间件（优化响应大小）
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
