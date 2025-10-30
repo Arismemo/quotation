@@ -7,16 +7,22 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image
 import io
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["文件上传"])
 
-# 允许的图片格式
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB，与前端一致
+# 使用配置中的常量
+ALLOWED_EXTENSIONS = settings.ALLOWED_IMAGE_EXTENSIONS
+ALLOWED_CONTENT_TYPES = settings.ALLOWED_IMAGE_CONTENT_TYPES
+MAX_FILE_SIZE = settings.MAX_UPLOAD_SIZE
 
-# 上传目录
-UPLOAD_DIR = Path("app/static/uploads")
+# 上传目录（使用绝对路径，基于项目根目录）
+# 从当前文件位置向上三级到项目根目录
+# upload.py 在 app/api/routers/，所以需要 parents[3]
+_BASE_DIR = Path(__file__).resolve().parents[3]
+UPLOAD_DIR = _BASE_DIR / "app" / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -33,6 +39,14 @@ async def upload_image(file: UploadFile = File(...)) -> dict[str, str]:
             status_code=400,
             detail=f"不支持的文件格式。仅支持: {', '.join(ALLOWED_EXTENSIONS)}",
         )
+
+    # 检查Content-Type（如果提供）
+    if file.content_type and file.content_type.lower() not in ALLOWED_CONTENT_TYPES:
+        # 允许content-type为空（某些客户端可能不发送），但如果不为空则需要验证
+        logger.warning(
+            f"Content-Type不匹配: {file.content_type}, 文件名: {file.filename}"
+        )
+        # 不直接拒绝，因为某些客户端可能发送错误的Content-Type，但文件本身是正确的
 
     # 读取文件内容
     content = await file.read()

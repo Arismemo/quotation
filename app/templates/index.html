@@ -740,6 +740,11 @@
     let currentImagePath = null;
     let uploadedImagePath = null;
     
+    // 文件上传配置常量
+    const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    
     // 打开收藏备注弹窗
     async function openFavoriteNote(favoriteId, currentName, currentImage) {
         currentEditingFavoriteId = favoriteId;
@@ -789,8 +794,20 @@
     document.getElementById('favoriteImageInput').addEventListener('change', async function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        if (file.size > 5*1024*1024){
-            showToast('图片超过 5MB 限制','error');
+        
+        // 检查文件大小
+        if (file.size > MAX_UPLOAD_SIZE){
+            showToast(`图片超过 ${MAX_UPLOAD_SIZE / 1024 / 1024}MB 限制`,'error');
+            this.value='';
+            return;
+        }
+        
+        // 检查文件类型
+        const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+        const isValidType = ALLOWED_IMAGE_TYPES.includes(file.type) || 
+                           ALLOWED_IMAGE_EXTENSIONS.includes(fileExt);
+        if (!isValidType) {
+            showToast('不支持的文件格式。仅支持: ' + ALLOWED_IMAGE_EXTENSIONS.join(', '), 'error');
             this.value='';
             return;
         }
@@ -809,24 +826,44 @@
             const formData = new FormData();
             formData.append('file', file);
             
+            // 添加超时处理
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
+            
             const res = await fetch('/api/upload/image', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (res.ok) {
                 const data = await res.json();
                 uploadedImagePath = data.path;
                 showToast('图片上传成功');
             } else {
-                const err = await res.json();
+                let err;
+                try {
+                    err = await res.json();
+                } catch {
+                    err = { detail: `服务器错误: ${res.status} ${res.statusText}` };
+                }
                 showToast(err.detail || '图片上传失败', 'error');
                 document.getElementById('favoriteImageInput').value = '';
                 document.getElementById('imagePreview').classList.add('hidden');
             }
         } catch (e) {
             console.error('上传图片失败:', e);
-            showToast('上传失败', 'error');
+            let errorMsg = '上传失败';
+            if (e.name === 'AbortError') {
+                errorMsg = '上传超时，请重试';
+            } else if (e instanceof TypeError && e.message.includes('fetch')) {
+                errorMsg = '网络错误，请检查网络连接';
+            }
+            showToast(errorMsg, 'error');
+            document.getElementById('favoriteImageInput').value = '';
+            document.getElementById('imagePreview').classList.add('hidden');
         }
     });
     
@@ -1096,11 +1133,24 @@
     analysisFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (file.size > 10*1024*1024){
-            showToast('图片超过 10MB 限制','error');
+        
+        // 检查文件大小
+        if (file.size > MAX_UPLOAD_SIZE){
+            showToast(`图片超过 ${MAX_UPLOAD_SIZE / 1024 / 1024}MB 限制`,'error');
             analysisFileInput.value='';
             return;
         }
+        
+        // 检查文件类型
+        const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+        const isValidType = ALLOWED_IMAGE_TYPES.includes(file.type) || 
+                           ALLOWED_IMAGE_EXTENSIONS.includes(fileExt);
+        if (!isValidType) {
+            showToast('不支持的文件格式。仅支持: ' + ALLOWED_IMAGE_EXTENSIONS.join(', '), 'error');
+            analysisFileInput.value='';
+            return;
+        }
+        
         // 本地预览
         try{
             const reader = new FileReader();
@@ -1137,9 +1187,26 @@
         try {
             const formData = new FormData();
             formData.append('file', file);
-            const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+            
+            // 添加超时处理
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
+            
+            const res = await fetch('/api/upload/image', { 
+                method: 'POST', 
+                body: formData,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
             if (!res.ok) {
-                const err = await res.json();
+                let err;
+                try {
+                    err = await res.json();
+                } catch {
+                    err = { detail: `服务器错误: ${res.status} ${res.statusText}` };
+                }
                 
                 // 显示错误状态
                 uploadStatus.innerHTML = '';
@@ -1172,12 +1239,19 @@
             uploadStatus.innerHTML = '';
             uploadStatus.appendChild(uploadError);
             uploadError.classList.remove('hidden');
-            uploadErrorMessage.textContent = '上传失败，请重试';
+            
+            let errorMsg = '上传失败，请重试';
+            if (err.name === 'AbortError') {
+                errorMsg = '上传超时，请重试';
+            } else if (err instanceof TypeError && err.message.includes('fetch')) {
+                errorMsg = '网络错误，请检查网络连接';
+            }
+            uploadErrorMessage.textContent = errorMsg;
             
             // 重新显示占位符
             if (uploadPlaceholder) uploadPlaceholder.classList.remove('hidden');
             
-            showToast('图片上传失败', 'error');
+            showToast(errorMsg, 'error');
         }
     });
 

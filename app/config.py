@@ -24,5 +24,16 @@ class Settings:
     APP_NAME: str = "PVC卡通制品报价系统"
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
 
+    # 文件上传配置
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    ALLOWED_IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    ALLOWED_IMAGE_CONTENT_TYPES: set[str] = {
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    }
+
 
 settings = Settings()
