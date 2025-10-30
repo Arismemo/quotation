@@ -1,26 +1,42 @@
 import os
 import sys
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 # 导入原始计算器（从项目根目录）
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-from quotation import QuotationCalculator
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 from app.services.cache_service import get_cached_settings, get_cached_worker_profiles
+from app.utils.error_handlers import BusinessLogicError, safe_execute
+from quotation import QuotationCalculator
 
 
 def build_calculator_from_db(db: Session) -> QuotationCalculator:
-    """从数据库设置构建计算器实例"""
+    """从数据库设置构建计算器实例
 
+    Args:
+        db: Database session
+
+    Returns:
+        Configured QuotationCalculator instance
+
+    Raises:
+        BusinessLogicError: If settings are not initialized
+    """
     # 获取应用设置（使用缓存）
-    settings = get_cached_settings(db)
+    settings = safe_execute(get_cached_settings, db, error_message="获取应用设置失败")
+
     if not settings:
-        raise ValueError("应用设置未初始化")
+        raise BusinessLogicError(
+            "应用设置未初始化，请先配置系统参数", error_code="SETTINGS_NOT_INITIALIZED"
+        )
 
     # 获取工人配置（使用缓存）
-    worker_profiles_list = get_cached_worker_profiles(db)
+    worker_profiles_list = safe_execute(
+        get_cached_worker_profiles, db, error_message="获取工人配置失败"
+    )
 
     # 创建计算器实例
     calc = QuotationCalculator()
@@ -82,14 +98,23 @@ def compute_quote(
     order_quantity: int,
     worker_type: str = "standard",
     debug: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """执行报价计算"""
 
     calc = build_calculator_from_db(db)
 
     # 如果开启调试模式，收集详细的中间计算数据
     if debug:
-        debug_info = _collect_debug_info(calc, length, width, thickness, color_count, area_ratio, order_quantity, worker_type)
+        debug_info = _collect_debug_info(
+            calc,
+            length,
+            width,
+            thickness,
+            color_count,
+            area_ratio,
+            order_quantity,
+            worker_type,
+        )
         result = calc.calculate_quote(
             length=length,
             width=width,
@@ -114,9 +139,9 @@ def compute_quote(
             debug=False,
         )
 
-    # 如果返回错误，抛出异常
+    # 如果返回错误，抛出业务逻辑异常
     if "error" in result:
-        raise ValueError(result["error"])
+        raise BusinessLogicError(result["error"], error_code="CALCULATION_ERROR")
 
     # 追加单个产品克重（g）
     try:
@@ -130,10 +155,19 @@ def compute_quote(
     return result
 
 
-def _collect_debug_info(calc, length, width, thickness, color_count, area_ratio, order_quantity, worker_type):
+def _collect_debug_info(
+    calc: QuotationCalculator,
+    length: float,
+    width: float,
+    thickness: float,
+    color_count: int,
+    area_ratio: float,
+    order_quantity: int,
+    worker_type: str,
+) -> dict[str, Any]:
     """收集调试信息"""
     debug_info = {}
-    
+
     # 1. 输入参数
     debug_info["input_params"] = {
         "产品长度(cm)": length,
@@ -142,64 +176,68 @@ def _collect_debug_info(calc, length, width, thickness, color_count, area_ratio,
         "颜色数量": color_count,
         "占用面积比例": area_ratio,
         "订单数量": order_quantity,
-        "工人类型": worker_type
+        "工人类型": worker_type,
     }
-    
+
     # 2. 产能计算
     units_per_mold = calc._calculate_units_per_mold(length, width)
-    output_per_shift_units, molds_per_shift = calc._calculate_output_per_shift(units_per_mold, color_count)
+    output_per_shift_units, molds_per_shift = calc._calculate_output_per_shift(
+        units_per_mold, color_count
+    )
     shifts_needed = order_quantity / output_per_shift_units
-    
+
     debug_info["capacity_calculation"] = {
         "每模产品数(个)": units_per_mold,
         "根据颜色数确定的单班产模数": molds_per_shift,
         "单班产量(个)": round(output_per_shift_units, 2),
-        "完成订单需要班数": round(shifts_needed, 2)
+        "完成订单需要班数": round(shifts_needed, 2),
     }
-    
+
     # 3. 材料成本计算
-    single_material_cost, weight = calc._calculate_single_material_cost(length, width, thickness, area_ratio)
+    single_material_cost, weight = calc._calculate_single_material_cost(
+        length, width, thickness, area_ratio
+    )
     total_material_cost = single_material_cost * order_quantity
-    
+
     debug_info["material_cost"] = {
         "单个产品克重(g)": round(weight, 4),
         "单个产品材料成本(元)": round(single_material_cost, 4),
-        "订单材料总成本(元)": round(total_material_cost, 2)
+        "订单材料总成本(元)": round(total_material_cost, 2),
     }
-    
+
     # 4. 班次成本计算
     needles_used = color_count + 1
-    cost_per_cell_shift = calc._get_cost_per_cell_shift(needles_used, color_count, worker_type, debug=False)
+    cost_per_cell_shift = calc._get_cost_per_cell_shift(
+        needles_used, color_count, worker_type, debug=False
+    )
     total_shift_cost = cost_per_cell_shift * shifts_needed
-    
+
     debug_info["shift_cost"] = {
         "产品使用针头数": f"{needles_used} / {calc.NEEDLES_PER_MACHINE}",
         "单班生产单元综合成本(元)": round(cost_per_cell_shift, 2),
-        "订单班次总成本(元)": round(total_shift_cost, 2)
+        "订单班次总成本(元)": round(total_shift_cost, 2),
     }
-    
+
     # 5. 调机费计算
     setup_fee = (color_count * calc.SETUP_FEE_PER_COLOR) + calc.BASE_SETUP_FEE
-    
-    debug_info["setup_cost"] = {
-        "订单固定调机费(元)": round(setup_fee, 2)
-    }
-    
+
+    debug_info["setup_cost"] = {"订单固定调机费(元)": round(setup_fee, 2)}
+
     # 6. 总成本计算
     total_production_cost = total_material_cost + total_shift_cost + setup_fee
     avg_cost_per_unit = total_production_cost / order_quantity
     factory_cost = avg_cost_per_unit / (1 - calc.WASTE_RATE)
     selling_price_per_unit = factory_cost * (1 + calc.PROFIT_MARGIN)
     total_price = selling_price_per_unit * order_quantity
-    
+
     debug_info["total_cost"] = {
         "订单生产总成本(元)": round(total_production_cost, 2),
         "单个产品平均生产成本(元)": round(avg_cost_per_unit, 4),
         "单个产品出厂成本(含废品率)(元)": round(factory_cost, 4),
         "产品销售单价(元)": round(selling_price_per_unit, 4),
-        "订单货款总额(元)": round(total_price, 2)
+        "订单货款总额(元)": round(total_price, 2),
     }
-    
+
     # 7. 系统参数
     debug_info["system_params"] = {
         "利润率": f"{calc.PROFIT_MARGIN:.1%}",
@@ -213,21 +251,21 @@ def _collect_debug_info(calc, length, width, thickness, color_count, area_ratio,
         "每台机台针头数": calc.NEEDLES_PER_MACHINE,
         "调机费/颜色(元)": calc.SETUP_FEE_PER_COLOR,
         "基础调机费(元)": calc.BASE_SETUP_FEE,
-        "调色费/颜色/班(元)": calc.COLORING_FEE_PER_COLOR_PER_SHIFT
+        "调色费/颜色/班(元)": calc.COLORING_FEE_PER_COLOR_PER_SHIFT,
     }
-    
+
     # 8. 工人配置
     worker_profile = calc.WORKER_PROFILES.get(worker_type, {})
     debug_info["worker_profile"] = {
         "工人类型": worker_type,
         "月薪(元)": worker_profile.get("monthly_salary", 0),
-        "操作机台数": worker_profile.get("machines_operated", 0)
+        "操作机台数": worker_profile.get("machines_operated", 0),
     }
-    
+
     # 9. 颜色产能映射
     debug_info["color_output_map"] = {}
     for (min_colors, max_colors), molds_per_shift in calc.COLOR_OUTPUT_MAP.items():
         key = f"{min_colors}-{max_colors}色"
         debug_info["color_output_map"][key] = f"{molds_per_shift} 模/班"
-    
+
     return debug_info

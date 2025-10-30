@@ -19,7 +19,7 @@ def handle_common_exceptions(
 
     def decorator(func: F) -> F:
         import functools
-        
+
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:

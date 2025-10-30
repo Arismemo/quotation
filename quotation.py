@@ -290,26 +290,30 @@ class QuotationCalculator:
 if __name__ == "__main__":
     import os
     import sys
-    
+
     # 添加项目路径以导入应用模块
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    
+
     try:
         # 尝试使用数据库配置
-        from app.services.calculator_service import build_calculator_from_db
         from app.db.session import SessionLocal
-        
+        from app.services.calculator_service import build_calculator_from_db
+
         print("使用数据库配置进行计算...")
         db = SessionLocal()
         calculator = build_calculator_from_db(db)
         db.close()
-        
-        print(f"当前配置 - 利润率: {calculator.PROFIT_MARGIN:.1%}, 每月工作天数: {calculator.WORKING_DAYS_PER_MONTH}天")
-        
+
+        print(
+            f"当前配置 - 利润率: {calculator.PROFIT_MARGIN:.1%}, 每月工作天数: {calculator.WORKING_DAYS_PER_MONTH}天"
+        )
+
     except ImportError as e:
         print(f"无法导入数据库模块 ({e})，使用默认配置...")
         calculator = QuotationCalculator()
-        print(f"默认配置 - 利润率: {calculator.PROFIT_MARGIN:.1%}, 每月工作天数: {calculator.WORKING_DAYS_PER_MONTH}天")
+        print(
+            f"默认配置 - 利润率: {calculator.PROFIT_MARGIN:.1%}, 每月工作天数: {calculator.WORKING_DAYS_PER_MONTH}天"
+        )
 
     # 2. 定义产品参数 (已移除 difficulty_factor)
     product_info = {

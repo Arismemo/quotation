@@ -8,7 +8,7 @@ from fastapi import HTTPException, UploadFile
 
 
 def validate_file_upload(
-    file: UploadFile, allowed_extensions: List[str], max_size_mb: int = 10
+    file: UploadFile, allowed_extensions: list[str], max_size_mb: int = 10
 ) -> None:
     """验证文件上传"""
     if not file.filename:
