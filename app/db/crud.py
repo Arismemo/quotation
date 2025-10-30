@@ -34,8 +34,6 @@ def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
-
-
 # ==================== AppSettings CRUD ====================
 def get_app_settings(db: Session) -> Optional[AppSettings]:
     return db.query(AppSettings).filter(AppSettings.id == 1).first()

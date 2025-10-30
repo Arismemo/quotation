@@ -38,7 +38,8 @@ async def login(
     request.session["user_id"] = user.id
 
     return success_response(
-        data={"user": UserResponse.model_validate(user).model_dump(mode='json')}, message="登录成功"
+        data={"user": UserResponse.model_validate(user).model_dump(mode="json")},
+        message="登录成功",
     )
 
 
@@ -56,4 +57,4 @@ async def get_current_user_info(
     """获取当前登录用户信息"""
     if not user:
         return None
-    return UserResponse.model_validate(user).model_dump(mode='json')
+    return UserResponse.model_validate(user).model_dump(mode="json")

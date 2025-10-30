@@ -100,6 +100,7 @@ def analyze_with_opencv(image_bgr: np.ndarray) -> tuple[float, np.ndarray]:
 def analyze_with_rembg(image_bytes: bytes) -> tuple[float, np.ndarray]:
     # Lazy import to avoid loading onnxruntime unless explicitly needed
     from rembg import remove
+
     # Remove background to RGBA bytes
     result_bytes = remove(image_bytes)
     rgba = Image.open(BytesIO(result_bytes)).convert("RGBA")
@@ -128,6 +129,8 @@ def save_preview(preview_bgr: np.ndarray) -> str:
     cv2.imwrite(str(out_path), _ensure_uint8(preview_bgr))
     # return relative static path
     return f"/static/uploads/analysis/{filename}"
+
+
 def get_mask_rgb_opencv(image_bgr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -136,13 +139,14 @@ def get_mask_rgb_opencv(image_bgr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     # pick better by larger contour
     c1 = _find_largest_contour(thr1)
     c2 = _find_largest_contour(thr2)
+
     def score(c):
         return 0.0 if c is None else float(cv2.contourArea(c))
+
     mask = thr1 if score(c1) >= score(c2) else thr2
     mask = (mask > 0).astype(np.uint8)
     rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     return mask, rgb
-
 
 
 def load_image_bgr_from_path(static_path: str) -> tuple[np.ndarray, bytes]:
@@ -193,7 +197,9 @@ def analyze_area_ratio(
     return ratio, preview_path
 
 
-def analyze_colors(static_path: str, method: Literal["opencv", "rembg"] = "opencv") -> dict[str, object]:
+def analyze_colors(
+    static_path: str, method: Literal["opencv", "rembg"] = "opencv"
+) -> dict[str, object]:
     """统计主体颜色数量与调色板（改为使用 color_counter 模块）。"""
     # 解析文件绝对路径
     if not static_path.startswith("/static/"):
