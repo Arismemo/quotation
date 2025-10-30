@@ -372,6 +372,19 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- 优化后的函数库 -->
+<script src="{{ url_for('static', path='js/index-optimized.js') }}"></script>
+<script>
+    // 获取优化函数
+    const Optimized = window.OptimizedFunctions || {};
+    
+    // 初始化表单验证
+    if (Optimized.initFormValidation) {
+        document.addEventListener('DOMContentLoaded', () => {
+            Optimized.initFormValidation();
+        });
+    }
+</script>
 <script>
     // 当前报价的历史记录ID
     let currentQuoteHistoryId = null;
@@ -638,7 +651,7 @@
         }).join('');
     }
     
-    // 筛选收藏
+    // 筛选收藏（使用优化的防抖搜索）
     function filterFavorites() {
         const searchTerm = document.getElementById('favoriteSearchInput').value.toLowerCase().trim();
         
@@ -653,6 +666,17 @@
         });
         
         renderFavorites(filtered);
+    }
+    
+    // 使用防抖优化搜索输入
+    if (Optimized.debouncedFavoriteSearch) {
+        const searchInput = document.getElementById('favoriteSearchInput');
+        if (searchInput) {
+            searchInput.removeAttribute('oninput');
+            searchInput.addEventListener('input', () => {
+                Optimized.debouncedFavoriteSearch(searchInput.value);
+            });
+        }
     }
     
     // 填充表单（从历史记录）
