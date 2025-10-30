@@ -88,7 +88,7 @@ async def validation_exception_handler(
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle HTTP exceptions."""
     logger.warning(f"HTTP exception on {request.url}: {exc.detail}")
-    
+
     # 特别处理 413 错误（请求体过大）
     if exc.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE:
         from app.config import settings

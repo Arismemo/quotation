@@ -93,7 +93,7 @@ async def upload_image(file: UploadFile = File(...)) -> dict[str, str]:
         # 返回相对路径（用于数据库存储和前端访问）
         relative_path = f"/static/uploads/{unique_filename}"
         logger.info(f"上传图片成功: {relative_path} (大小: {len(content)} bytes)")
-        
+
         return {
             "path": relative_path,
             "filename": unique_filename,

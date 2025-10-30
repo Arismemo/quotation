@@ -1325,9 +1325,9 @@
                 
                 areaReq = Promise.race([
                     fetch('/api/analyze/area-ratio', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: analysisUploadedPath, method })
                     }),
                     createTimeoutPromise(timeoutMs, '面积比例计算')
                 ]).catch(err => {
@@ -1350,9 +1350,9 @@
                 
                 colorReq = Promise.race([
                     fetch('/api/analyze/colors', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ image_path: analysisUploadedPath, method })
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: analysisUploadedPath, method })
                     }),
                     createTimeoutPromise(timeoutMs, '颜色分析')
                 ]).catch(err => {
@@ -1424,7 +1424,7 @@
                 const res2 = results[requests.indexOf(colorReq)];
                 if (res2.status === 'fulfilled' && res2.value.ok) {
                     try { 
-                        colorsJson = await res2.value.json();
+                        colorsJson = await res2.value.json(); 
                         updateProgress(90, '颜色分析完成 ✓');
                     } catch(e) { 
                         updateProgress(90, '颜色统计失败: 响应解析错误');
