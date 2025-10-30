@@ -5,8 +5,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.db.models import User  # 保留导入以兼容可能的类型引用
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["文件上传"])

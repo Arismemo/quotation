@@ -7,7 +7,6 @@ from typing import Any, Callable, Optional, TypeVar
 from sqlalchemy.orm import Session
 
 from app.db import crud
-from app.db.models import AppSettings, WorkerProfile
 
 logger = logging.getLogger(__name__)
 

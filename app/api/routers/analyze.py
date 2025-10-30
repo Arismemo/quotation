@@ -3,7 +3,6 @@ from typing import Union
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.db.models import User  # 保留类型引用兼容
 from app.services.image_analysis_service import analyze_area_ratio, analyze_colors
 from app.utils.exceptions import handle_common_exceptions
 
