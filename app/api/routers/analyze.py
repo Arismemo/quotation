@@ -58,11 +58,11 @@ async def analyze_area_ratio_api(
             timeout=timeout,
         )
         logger.info(f"面积比例分析完成: ratio={ratio:.4f}")
-    return {
-        "area_ratio": round(float(ratio), 4),
-        "method": method,
-        "preview_path": preview_path,
-    }
+        return {
+            "area_ratio": round(float(ratio), 4),
+            "method": method,
+            "preview_path": preview_path,
+        }
     except asyncio.TimeoutError:
         logger.error(f"面积比例分析超时: path={payload.image_path}, method={method}, timeout={timeout}s")
         raise HTTPException(
@@ -113,7 +113,7 @@ async def analyze_colors_api(
             timeout=timeout,
         )
         logger.info(f"颜色分析完成: colors={result.get('color_count', 0)}")
-    return result
+        return result
     except asyncio.TimeoutError:
         logger.error(f"颜色分析超时: path={payload.image_path}, method={method}, timeout={timeout}s")
         raise HTTPException(
