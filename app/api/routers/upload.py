@@ -4,6 +4,8 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from PIL import Image
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +37,29 @@ async def upload_image(file: UploadFile = File(...)) -> dict[str, str]:
     # 读取文件内容
     content = await file.read()
 
+    # 检查文件是否为空
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="文件不能为空",
+        )
+
     # 检查文件大小
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
             detail=f"文件大小超过限制({MAX_FILE_SIZE // 1024 // 1024}MB)",
+        )
+
+    # 验证图片内容是否有效
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            # 验证图片可以正常打开和读取
+            img.verify()
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="文件不是有效的图片格式",
         )
 
     # 生成唯一文件名
